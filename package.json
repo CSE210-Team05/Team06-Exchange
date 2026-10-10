@@ -1,33 +1,16 @@
 {
   "name": "zeroplot",
   "version": "1.0.0",
-  "description": "Paste CSV data and draw a line or scatter plot (SVG or Canvas). No dependencies, plain HTML, CSS and JavaScript.",
+  "description": "Paste CSV data and draw a line or scatter plot as SVG. No dependencies, plain HTML, CSS and JavaScript.",
   "type": "module",
-  "main": "src/index.js",
-  "exports": {
-    ".": "./src/index.js"
-  },
-  "files": [
-    "src"
-  ],
+  "private": true,
   "scripts": {
     "start": "node scripts/serve.js",
-    "test": "node test/run.js"
+    "test": "node --test"
   },
-  "keywords": [
-    "plot",
-    "chart",
-    "scatter",
-    "line",
-    "svg",
-    "canvas",
-    "zero-dependency"
-  ],
   "author": "Philipp",
   "license": "MIT",
   "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {},
-  "devDependencies": {}
+    "node": ">=20"
+  }
 }

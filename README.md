@@ -8,8 +8,7 @@ no libraries, no build step, no external requests.
 ## Features
 
 - Paste CSV data and click **Apply data**. The first column is x, the second column is y.
-- **Line** or **scatter** plot.
-- **SVG** or **Canvas** output. Both are drawn from the same scene, so they look the same.
+- **Line** or **scatter** plot, drawn as SVG.
 - Editable **axis titles** for x and y (taken from the CSV header row by default).
 - **Automatic axis scaling** with round tick values (1, 2 or 5 times a power of ten).
 - **Fixed layout**: the plot is always 720 × 440 px with a vertical and a horizontal grid.
@@ -31,61 +30,44 @@ CSV details: a header row is optional; commas, semicolons and tabs are accepted;
 ## Tests
 
 ```sh
-node test/run.js
+node --test
 ```
 
-Node 18 or newer, no `npm install`. The same specs run in the browser at <http://localhost:8080/test/index.html>,
-including the tests that need a DOM. The test harness (`test/harness.js`) is part of the project, so tests need no framework either.
-
-## Use the library on its own
-
-```html
-<div id="chart"></div>
-<script type="module">
-  import { Plot, parseCSV } from './src/index.js';
-
-  const { points, xLabel, yLabel } = parseCSV('Time (s),Height (m)\n0,0\n1,15.1\n2,20.4');
-  const plot = new Plot(document.getElementById('chart'), { points, xLabel, yLabel });
-
-  plot.update({ type: 'scatter', renderer: 'canvas' });
-</script>
-```
-
-| Option | Values | Default |
-| --- | --- | --- |
-| `points` | `[[x, y], ...]` | `[]` |
-| `type` | `'line'`, `'scatter'` | `'line'` |
-| `renderer` | `'svg'`, `'canvas'` | `'svg'` |
-| `xLabel`, `yLabel` | any text | `'x'`, `'y'` |
+Uses Node's built-in test runner (Node 20 or newer), so there is nothing to install.
 
 ## How it works
 
 ```
-CSV text ──► parseCSV ──► points ──► buildScene ──► primitives ──► renderSVG    (SVG markup)
-                                       │                     └──► renderCanvas (canvas draw calls)
-                                       └── niceAxis: automatic, round axis ranges and ticks
+CSV text ──► parseCSV() ──► [x, y] points ──► renderChart() ──► SVG markup ──► page
+                                                   └── niceAxis(): automatic, round axis ranges
 ```
 
 | File | Responsibility |
 | --- | --- |
 | `src/csv.js` | Parse pasted CSV into `[x, y]` points and default axis titles |
-| `src/scale.js` | Nice tick values (Heckbert's 1-2-5 rule) and the linear data-to-pixel mapping |
-| `src/format.js` | Tick labels: shared precision, compact units (5K, 2M), typographic minus |
-| `src/scene.js` | Fixed layout, grid, axes, line or markers, as renderer-independent primitives |
-| `src/render-svg.js` | Primitives to an SVG string (labels are escaped) |
-| `src/render-canvas.js` | Primitives to Canvas 2D calls, sharp on high-density screens |
-| `src/plot.js` | The `Plot` component: puts the chart into a container and redraws on `update()` |
-| `site/app.js` | The page: CSV input, controls and the data table |
+| `src/axis.js` | Nice tick values (Heckbert's 1-2-5 rule), the data-to-pixel mapping and tick labels |
+| `src/chart.js` | The fixed layout: grid, axes, line or markers and titles, returned as an SVG string |
+| `site/app.js` | The page: CSV input, line/scatter switch, axis titles and the data table |
 
-Because the scene never touches the DOM, layout and both renderers are tested in Node.
+Both library modules are pure functions without DOM access, which is why every test runs in Node.
+Using them elsewhere takes two calls:
+
+```js
+import { parseCSV } from './src/csv.js';
+import { renderChart } from './src/chart.js';
+
+const { points, xLabel, yLabel } = parseCSV('Time (s),Height (m)\n0,0\n1,15.1\n2,20.4');
+document.getElementById('chart').innerHTML = renderChart({ points, type: 'scatter', xLabel, yLabel });
+```
 
 ## Version history
 
-This is a deliberately small base. A larger prototype with time and log axes, zoom and pan, tooltips, multiple series,
-themes and an examples gallery is kept in git under the tag `prototype-full`. Bring a part back with, for example:
+This is a deliberately small base. A larger prototype with a Canvas renderer, time and log axes, zoom and pan,
+tooltips, multiple series, themes and an examples gallery is kept in git under the tag `prototype-full`.
+Look at a part of it with, for example:
 
 ```sh
-git show prototype-full:src/core/time.js
+git show prototype-full:src/interaction/hittest.js
 ```
 
 ## License

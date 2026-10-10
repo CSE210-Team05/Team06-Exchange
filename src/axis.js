@@ -1,9 +1,10 @@
 /**
- * Automatic axis scaling: a linear scale and "nice" tick values.
+ * Automatic axis scaling: nice tick values, the data-to-pixel mapping and
+ * tick labels.
  *
  * The distance between ticks is always 1, 2 or 5 times a power of ten
  * (Paul Heckbert, "Nice Numbers for Graph Labels", Graphics Gems, 1990),
- * and the axis is extended to start and end on a tick.
+ * and each axis is extended to start and end on a tick.
  */
 
 // Thresholds at the geometric means between neighbouring mantissas
@@ -12,6 +13,15 @@
 const BETWEEN_1_AND_2 = Math.SQRT2;
 const BETWEEN_2_AND_5 = Math.sqrt(10);
 const BETWEEN_5_AND_10 = Math.sqrt(50);
+
+export const MINUS = '−';
+
+const UNITS = [
+  [1e12, 'T'],
+  [1e9, 'B'],
+  [1e6, 'M'],
+  [1e3, 'K'],
+];
 
 /**
  * Decimal places needed to write `value` exactly: 0.25 -> 2, 5 -> 0.
@@ -32,7 +42,7 @@ export function decimalsOf(value) {
  * @param {number} value
  * @param {number} digits
  */
-export function roundTo(value, digits) {
+function roundTo(value, digits) {
   const rounded = Number(value.toFixed(Math.min(100, Math.max(0, digits))));
   return rounded === 0 ? 0 : rounded;
 }
@@ -93,4 +103,35 @@ export function niceAxis(low, high, count) {
 export function linearScale([d0, d1], [r0, r1]) {
   const factor = d1 === d0 ? 0 : (r1 - r0) / (d1 - d0);
   return (value) => r0 + (value - d0) * factor;
+}
+
+/**
+ * Formatter for the tick labels of one axis. All labels share one precision
+ * (0.0, 0.5, 1.0), long numbers use compact units (5K, 2.5M), and negative
+ * numbers get the typographic minus sign, which is as wide as a plus sign.
+ * @param {number[]} ticks
+ * @param {number} step distance between ticks
+ * @returns {(value: number) => string}
+ */
+export function tickFormatter(ticks, step) {
+  const maxAbs = ticks.reduce((largest, value) => Math.max(largest, Math.abs(value)), 0);
+  const fixed = (value, digits) => roundTo(value, digits).toFixed(digits).replace('-', MINUS);
+
+  // Compact units from 10,000 up, or from 1,000 when the ticks are whole
+  // thousands. The second rule keeps years such as 1990 or 2020 intact.
+  if (maxAbs >= 1e4 || (maxAbs >= 1e3 && step >= 1e3)) {
+    const [unit, suffix] = UNITS.find(([size]) => maxAbs >= size);
+    const digits = decimalsOf(roundTo(step / unit, 12));
+    return (value) => (value === 0 ? '0' : fixed(value / unit, digits) + suffix);
+  }
+
+  // Tiny magnitudes: a shared exponent, e.g. 2.5e−5.
+  if (maxAbs > 0 && maxAbs < 1e-3) {
+    const exponent = Math.floor(Math.log10(maxAbs));
+    const digits = decimalsOf(roundTo(step / 10 ** exponent, 12));
+    return (value) => (value === 0 ? '0' : `${fixed(value / 10 ** exponent, digits)}e${String(exponent).replace('-', MINUS)}`);
+  }
+
+  const digits = decimalsOf(step);
+  return (value) => fixed(value, digits);
 }

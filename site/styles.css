@@ -115,7 +115,7 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 /* The chart is always 720 x 440 px. Narrower screens scroll it sideways
    instead of shrinking it, so labels stay readable. */
 .chart { padding: 8px; overflow-x: auto; }
-.chart svg, .chart canvas { display: block; width: 720px; height: 440px; }
+.chart svg { display: block; width: 720px; height: 440px; }
 
 /* ------------------------------------------------------------------ settings rail */
 .rail-section { display: grid; gap: 12px; padding: 16px; }

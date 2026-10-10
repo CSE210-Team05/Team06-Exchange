@@ -1,5 +1,6 @@
-import { assert, describe, it } from '../harness.js';
-import { detectDelimiter, parseCSV, readRows, toNumber } from '../../src/csv.js';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { detectDelimiter, parseCSV, readRows, toNumber } from '../src/csv.js';
 
 describe('parseCSV', () => {
   it('reads x and y from the first two columns and the header as labels', () => {

@@ -1,6 +1,6 @@
-import { assert, describe, it } from '../harness.js';
-import { decimalsOf, linearScale, niceAxis, tickStep } from '../../src/scale.js';
-import { MINUS, tickFormatter } from '../../src/format.js';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { MINUS, decimalsOf, linearScale, niceAxis, tickFormatter, tickStep } from '../src/axis.js';
 
 describe('tickStep (1-2-5 rule)', () => {
   it('picks 1, 2 or 5 times a power of ten', () => {
@@ -28,7 +28,7 @@ describe('niceAxis', () => {
   });
 
   it('does not let the step escalate', () => {
-    // Re-nicing the widened domain would turn [-2.1, 5.3] into [-5, 10].
+    // Re-computing the step for the widened range would turn [-2.1, 5.3] into [-5, 10].
     assert.deepEqual(niceAxis(-2.1, 5.3, 3).domain, [-4, 6]);
   });
 
@@ -53,7 +53,7 @@ describe('linearScale', () => {
 });
 
 describe('decimalsOf', () => {
-  it('counts decimals needed to write a number exactly', () => {
+  it('counts the decimals needed to write a number exactly', () => {
     assert.equal(decimalsOf(5), 0);
     assert.equal(decimalsOf(0.25), 2);
     assert.equal(decimalsOf(0.1 + 0.2), 1);
