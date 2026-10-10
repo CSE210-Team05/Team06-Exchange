@@ -1,7 +1,7 @@
 {
   "name": "zeroplot",
   "version": "1.0.0",
-  "description": "A dependency-free plotting library for line and scatter plots (SVG + Canvas), written in plain HTML, CSS and JavaScript.",
+  "description": "Paste CSV data and draw a line or scatter plot (SVG or Canvas). No dependencies, plain HTML, CSS and JavaScript.",
   "type": "module",
   "main": "src/index.js",
   "exports": {

@@ -54,8 +54,6 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`ZeroPlot dev server: http://localhost:${PORT}`);
-  console.log(`  Plot builder  http://localhost:${PORT}/`);
-  console.log(`  Examples      http://localhost:${PORT}/examples.html`);
-  console.log(`  Tests         http://localhost:${PORT}/test/`);
+  console.log(`ZeroPlot:  http://localhost:${PORT}/`);
+  console.log(`Tests:     http://localhost:${PORT}/test/index.html`);
 });
