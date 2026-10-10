@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ZeroPlot Builder</title>
+<meta name="description" content="Build line and scatter plots from CSV data with ZeroPlot, a plotting library written from scratch in plain JavaScript.">
+<link rel="stylesheet" href="site/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html" aria-label="ZeroPlot home">
+    <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true">
+      <rect x="0.5" y="0.5" width="27" height="27" rx="7" style="fill: var(--accent-wash); stroke: var(--line-strong)"/>
+      <path d="M6 5.5V22h16.5" style="fill: none; stroke: var(--ink-3); stroke-width: 1.5; stroke-linecap: round"/>
+      <path d="M8.5 18.5 13 14l3 2.5 5-7" style="fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"/>
+      <circle cx="13" cy="14" r="1.9" style="fill: var(--accent)"/>
+      <circle cx="21" cy="9.5" r="1.9" style="fill: var(--accent)"/>
+    </svg>
+    <span class="brand-name">ZeroPlot</span>
+    <span class="brand-version">v1.0</span>
+  </a>
+  <nav class="nav" aria-label="Site">
+    <a href="index.html" aria-current="page">Builder</a>
+    <a href="examples.html">Examples</a>
+    <a href="test/index.html">Tests</a>
+  </nav>
+  <div class="topbar-end">
+    <button class="button" type="button" id="theme-toggle">Theme: system</button>
+  </div>
+</header>
+
+<main class="builder">
+  <!-- Work column: the plot, then its code / data / SVG output. -->
+  <div class="work">
+    <section class="panel plot-panel" aria-label="Plot">
+      <div class="toolbar">
+        <div class="segmented" role="radiogroup" aria-label="Plot type">
+          <label><input type="radio" name="plot-type" value="line" id="type-line" checked><span>Line</span></label>
+          <label><input type="radio" name="plot-type" value="scatter" id="type-scatter"><span>Scatter</span></label>
+        </div>
+        <div class="segmented" role="radiogroup" aria-label="Renderer">
+          <label><input type="radio" name="renderer" value="svg" id="renderer-svg" checked><span>SVG</span></label>
+          <label><input type="radio" name="renderer" value="canvas" id="renderer-canvas"><span>Canvas</span></label>
+        </div>
+        <span class="spacer"></span>
+        <span class="readout" id="readout" aria-hidden="true">Point at the plot to read values</span>
+        <button class="button" type="button" id="reset-view" disabled>Reset view</button>
+        <button class="button" type="button" id="download-svg">Download SVG</button>
+        <button class="button" type="button" id="download-png">Download PNG</button>
+      </div>
+      <div class="chart-host" id="chart"></div>
+      <p class="plot-help">
+        Drag to pan. Hold <kbd>Shift</kbd> and drag to zoom into a box. Hold <kbd>Ctrl</kbd> or <kbd>⌘</kbd> and scroll
+        (or pinch) to zoom. Double-click resets the view. Click a legend entry to hide its series.
+        With the plot focused, the arrow keys step through the points and <kbd>+</kbd>, <kbd>−</kbd>, <kbd>0</kbd> zoom.
+      </p>
+    </section>
+
+    <section class="panel" aria-label="Output">
+      <div class="tabs" role="tablist" aria-label="Output">
+        <button class="tab" type="button" role="tab" id="tab-code" aria-controls="panel-code" aria-selected="true">Code</button>
+        <button class="tab" type="button" role="tab" id="tab-table" aria-controls="panel-table" aria-selected="false" tabindex="-1">Data table</button>
+        <button class="tab" type="button" role="tab" id="tab-svg" aria-controls="panel-svg" aria-selected="false" tabindex="-1">Export</button>
+      </div>
+      <div class="tab-panel" role="tabpanel" id="panel-code" aria-labelledby="tab-code">
+        <div class="tab-actions">
+          <button class="button" type="button" id="copy-code">Copy code</button>
+          <span class="hint">The JavaScript that draws this plot with ZeroPlot.</span>
+        </div>
+        <pre class="code" id="code" tabindex="0"></pre>
+      </div>
+      <div class="tab-panel" role="tabpanel" id="panel-table" aria-labelledby="tab-table" hidden>
+        <p class="hint" id="table-note"></p>
+        <div class="table-wrap" id="table-host" tabindex="0"></div>
+      </div>
+      <div class="tab-panel" role="tabpanel" id="panel-svg" aria-labelledby="tab-svg" hidden>
+        <div class="tab-actions">
+          <button class="button" type="button" id="copy-svg">Copy SVG markup</button>
+          <span class="hint" id="export-note">The plot as it looks right now, including the current zoom.</span>
+        </div>
+        <img class="export-preview" id="export-preview" alt="PNG preview of the current plot">
+        <textarea id="svg-markup" rows="8" readonly aria-label="SVG markup" style="margin-top: 10px"></textarea>
+      </div>
+    </section>
+  </div>
+
+  <!-- Control rail -->
+  <aside class="panel rail" aria-label="Plot settings">
+    <details class="rail-section" open>
+      <summary>Data</summary>
+      <div class="rail-body">
+        <label class="field" for="dataset">
+          <span>Sample dataset</span>
+          <select id="dataset"></select>
+        </label>
+        <label class="field" for="csv">
+          <span>CSV data</span>
+          <textarea id="csv" rows="8" spellcheck="false" autocomplete="off"></textarea>
+        </label>
+        <p class="error" id="csv-error" aria-live="polite"></p>
+        <div class="inline">
+          <button class="button button-primary" type="button" id="apply-csv">Apply data</button>
+          <span class="hint">Paste CSV with a header row. Commas, semicolons or tabs.</span>
+        </div>
+        <label class="field" for="x-column">
+          <span>X column</span>
+          <select id="x-column"></select>
+        </label>
+        <div class="field">
+          <span class="field-label" id="y-columns-label">Y columns</span>
+          <div class="column-list" id="y-columns" role="group" aria-labelledby="y-columns-label"></div>
+        </div>
+        <label class="field" for="group-column">
+          <span>Split into series by</span>
+          <select id="group-column"></select>
+        </label>
+      </div>
+    </details>
+
+    <details class="rail-section" open>
+      <summary>Chart</summary>
+      <div class="rail-body">
+        <label class="field" for="title">
+          <span>Title</span>
+          <input type="text" id="title" autocomplete="off">
+        </label>
+        <label class="field" for="subtitle">
+          <span>Subtitle</span>
+          <input type="text" id="subtitle" autocomplete="off">
+        </label>
+        <div class="row">
+          <label class="field" for="legend">
+            <span>Legend</span>
+            <select id="legend">
+              <option value="top">Top</option>
+              <option value="right">Right</option>
+              <option value="bottom">Bottom</option>
+              <option value="none">Hidden</option>
+            </select>
+          </label>
+          <label class="field" for="height">
+            <span>Height <output id="height-value" for="height">420 px</output></span>
+            <input type="range" id="height" min="240" max="760" step="20" value="420">
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <details class="rail-section" open>
+      <summary>Axes</summary>
+      <div class="rail-body">
+        <div class="row">
+          <label class="field" for="x-label">
+            <span>X axis title</span>
+            <input type="text" id="x-label" autocomplete="off">
+          </label>
+          <label class="field" for="x-scale">
+            <span>X scale</span>
+            <select id="x-scale">
+              <option value="auto">Automatic</option>
+              <option value="linear">Linear</option>
+              <option value="log">Logarithmic</option>
+              <option value="time">Time</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <label class="field" for="y-label">
+            <span>Y axis title</span>
+            <input type="text" id="y-label" autocomplete="off">
+          </label>
+          <label class="field" for="y-scale">
+            <span>Y scale</span>
+            <select id="y-scale">
+              <option value="auto">Automatic</option>
+              <option value="linear">Linear</option>
+              <option value="log">Logarithmic</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <label class="field" for="y-min">
+            <span>Y minimum</span>
+            <input type="number" id="y-min" placeholder="auto" step="any">
+          </label>
+          <label class="field" for="y-max">
+            <span>Y maximum</span>
+            <input type="number" id="y-max" placeholder="auto" step="any">
+          </label>
+        </div>
+        <div class="inline">
+          <label class="check"><input type="checkbox" id="y-zero"> Start Y at zero</label>
+          <label class="check"><input type="checkbox" id="x-grid" checked> Vertical grid</label>
+          <label class="check"><input type="checkbox" id="y-grid" checked> Horizontal grid</label>
+        </div>
+      </div>
+    </details>
+
+    <details class="rail-section" open>
+      <summary>Series</summary>
+      <div class="rail-body">
+        <div class="series-list" id="series-list"></div>
+      </div>
+    </details>
+  </aside>
+</main>
+
+<script type="module" src="site/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "name": "zeroplot",
+  "version": "1.0.0",
+  "description": "A dependency-free plotting library for line and scatter plots (SVG + Canvas), written in plain HTML, CSS and JavaScript.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "node test/run.js"
+  },
+  "keywords": [
+    "plot",
+    "chart",
+    "scatter",
+    "line",
+    "svg",
+    "canvas",
+    "zero-dependency"
+  ],
+  "author": "Philipp",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
