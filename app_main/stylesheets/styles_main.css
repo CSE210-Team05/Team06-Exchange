@@ -1,0 +1,183 @@
+/*
+ * ZeroPlot page styles. One fixed light look, no external fonts.
+ *
+ * Layout: a settings rail (CSV input, axis titles) beside the plot, with the
+ * data table under the plot. On narrow screens: plot, settings, table.
+ */
+:root {
+  --page: #efefeb;
+  --surface: #fcfcfb;
+  --surface-sunk: #f4f4f1;
+  --line: rgba(11, 11, 11, 0.10);
+  --line-strong: rgba(11, 11, 11, 0.20);
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #6b6a65;
+  --accent: #2a78d6;
+  --on-accent: #ffffff;
+  --danger: #b42318;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-code: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 14px/1.5 var(--font-ui);
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+kbd {
+  padding: 0 4px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  font-family: var(--font-code);
+  font-size: 0.85em;
+}
+
+h2 { margin: 0; font-size: 13px; font-weight: 600; }
+
+/* ------------------------------------------------------------------ top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.brand-mark { width: 28px; height: 28px; flex: none; }
+.brand-name { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+
+/* ------------------------------------------------------------------ layout */
+.layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-areas:
+    "rail plot"
+    "rail table";
+  align-items: start;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-block: 16px 32px;
+  padding-inline: 16px;
+}
+.plot-panel { grid-area: plot; }
+.rail { grid-area: rail; }
+.table-panel { grid-area: table; }
+
+.panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+/* ------------------------------------------------------------------ plot */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunk);
+}
+.segmented label { position: relative; }
+.segmented input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.segmented span {
+  display: block;
+  padding: 5px 14px;
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+.segmented input:checked + span { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line-strong); }
+.segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* The chart is always 720 x 440 px. Narrower screens scroll it sideways
+   instead of shrinking it, so labels stay readable. */
+.chart { padding: 8px; overflow-x: auto; }
+.chart svg { display: block; width: 720px; height: 440px; }
+
+/* ------------------------------------------------------------------ settings rail */
+.rail-section { display: grid; gap: 12px; padding: 16px; }
+.rail-section + .rail-section { border-top: 1px solid var(--line); }
+
+.field { display: grid; gap: 4px; min-width: 0; }
+.field > span { color: var(--ink-2); font-size: 12px; font-weight: 500; }
+
+input[type="text"], textarea {
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunk);
+  color: var(--ink);
+  font: 13px/1.4 var(--font-ui);
+}
+textarea { resize: vertical; font-family: var(--font-code); font-size: 12px; line-height: 1.5; }
+input[type="text"]:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--surface); }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+.button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 13px/1 var(--font-ui);
+  cursor: pointer;
+}
+.button-primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.button-primary:hover { filter: brightness(1.08); }
+
+.hint { color: var(--ink-3); font-size: 12px; }
+.status { margin: 0; color: var(--ink-2); font-size: 12px; }
+.status:empty { display: none; }
+.status-error { color: var(--danger); font-weight: 500; }
+
+/* ------------------------------------------------------------------ data table */
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.table-wrap { max-height: 320px; overflow: auto; }
+.table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.table-wrap th, .table-wrap td { padding: 5px 16px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.table-wrap thead th { position: sticky; top: 0; background: var(--surface); color: var(--ink-2); font-weight: 600; }
+.table-wrap tbody tr:last-child td { border-bottom: 0; }
+
+/* ------------------------------------------------------------------ narrow screens */
+/* Below this width the rail and the 720 px chart no longer fit side by side. */
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "plot" "rail" "table";
+  }
+}
