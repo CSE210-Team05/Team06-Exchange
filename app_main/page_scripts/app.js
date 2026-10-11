@@ -1,70 +1,110 @@
 /**
  * The page: paste CSV, apply it, pick line or scatter, edit the axis titles,
- * and read the plotted values in the data table.
+ * point at the plot to read values, read all plotted values in the data
+ * table and download them as CSV.
  */
-import { parse_csv } from '../features/plot_handling/csv_input.js';
-import { render_chart } from '../features/plot_handling/chart_rendering.js';
+import { MAX_SERIES, parse_csv, to_csv, to_series } from '../features/plot_handling/csv_input.js';
+import { build_chart } from '../features/plot_handling/chart_rendering.js';
+import { attach_hover } from '../features/plot_handling/hover_tooltip.js';
 
-/** Example data shown on first load: a ball thrown straight up at 20 m/s. */
-const SAMPLE_CSV = `Time (s),Height (m)
-0,0
-0.25,4.69
-0.5,8.78
-0.75,12.24
-1,15.1
-1.25,17.34
-1.5,18.98
-1.75,19.99
-2,20.4
-2.25,20.19
-2.5,19.38
-2.75,17.94
-3,15.9
-3.25,13.24
-3.5,9.98
-3.75,6.09
-4,1.6`;
+/**
+ * Example data shown on first load: two balls thrown straight up, at 20 m/s
+ * and at 15 m/s. The slower one lands first, so its last cells are empty.
+ */
+const SAMPLE_CSV = `Time (s),Ball A,Ball B
+0,0,0
+0.25,4.69,3.44
+0.5,8.78,6.28
+0.75,12.24,8.49
+1,15.1,10.1
+1.25,17.34,11.09
+1.5,18.98,11.48
+1.75,19.99,11.24
+2,20.4,10.4
+2.25,20.19,8.94
+2.5,19.38,6.88
+2.75,17.94,4.19
+3,15.9,0.9
+3.25,13.24,
+3.5,9.98,
+3.75,6.09,
+4,1.6,`;
+/** With several series the y axis has no header to take its title from. */
+const SAMPLE_Y_LABEL = 'Height (m)';
 
-/** The table shows at most this many rows; the plot always shows every point. */
+/** The table shows at most this many rows; the plot and the download always hold every row. */
 const TABLE_LIMIT = 1000;
+const DOWNLOAD_NAME = 'zeroplot-data.csv';
 
 const $ = (id) => document.getElementById(id);
 const csv_input = $('csv');
 const x_label_input = $('x-label');
 const y_label_input = $('y-label');
 const status = $('status');
+const tooltip = $('tooltip');
 
-let points = [];
+/** @type {import('../features/plot_handling/csv_input.js').ParsedData | null} */
+let data = null;
 let type = 'line';
+/** @type {import('../features/plot_handling/chart_rendering.js').Chart | null} */
+let chart = null;
+
+const count_text = (count) => count.toLocaleString('en-US');
+
+/**
+ * Column headers of the data table and the download: x, then one per series.
+ * A single series is named by the y axis title, several by their CSV headers.
+ */
+function column_headers() {
+  const series_names = data.names.length === 1 ? [y_label_input.value || data.names[0]] : data.names;
+  return [x_label_input.value || 'x', ...series_names];
+}
 
 function draw_chart() {
-  $('chart').innerHTML = render_chart({ points, type, x_label: x_label_input.value, y_label: y_label_input.value });
+  const series = to_series(column_headers().slice(1), data.rows);
+  chart = build_chart({ series, type, x_label: x_label_input.value, y_label: y_label_input.value });
+  $('chart').innerHTML = chart.svg;
+  tooltip.hidden = true; // it described the previous drawing
 }
 
 function draw_table() {
   const table = document.createElement('table');
   const head_row = table.createTHead().insertRow();
-  for (const label of [x_label_input.value || 'x', y_label_input.value || 'y']) {
+  for (const label of column_headers()) {
     const cell = document.createElement('th');
     cell.scope = 'col';
     cell.textContent = label; // textContent: labels come from pasted data
     head_row.appendChild(cell);
   }
   const body = table.createTBody();
-  for (const [x, y] of points.slice(0, TABLE_LIMIT)) {
+  for (const values of data.rows.slice(0, TABLE_LIMIT)) {
     const row = body.insertRow();
-    row.insertCell().textContent = String(x);
-    row.insertCell().textContent = String(y);
+    for (const value of values) row.insertCell().textContent = value === null ? '' : String(value);
   }
   $('table').replaceChildren(table);
-  $('table-note').textContent = points.length > TABLE_LIMIT
-    ? `First ${TABLE_LIMIT.toLocaleString('en-US')} of ${points.length.toLocaleString('en-US')} rows`
-    : `${points.length.toLocaleString('en-US')} rows`;
+  $('table-note').textContent = data.rows.length > TABLE_LIMIT
+    ? `First ${count_text(TABLE_LIMIT)} of ${count_text(data.rows.length)} rows`
+    : `${count_text(data.rows.length)} rows`;
 }
 
 function show_status(message, is_error = false) {
   status.textContent = message;
   status.classList.toggle('status-error', is_error);
+}
+
+/** What was plotted, and what happened to the rows and columns that were not. */
+function describe_data() {
+  const rows_were = (count) => `${count_text(count)} ${count === 1 ? 'row was' : 'rows were'}`;
+  const notes = [data.names.length > 1
+    ? `${count_text(data.rows.length)} rows plotted in ${data.names.length} series.`
+    : `${count_text(data.rows.length)} points plotted.`];
+  if (data.skipped) notes.push(`${rows_were(data.skipped)} skipped because x or y is not a number.`);
+  if (data.duplicates) notes.push(`${rows_were(data.duplicates)} skipped because an earlier row has the same x.`);
+  if (data.reordered) notes.push('The rows were sorted by x.');
+  if (data.ignored_columns.length) {
+    notes.push(`Not plotted (no numbers, or more than ${MAX_SERIES} series): ${data.ignored_columns.join(', ')}.`);
+  }
+  return notes.join(' ');
 }
 
 /** Parse the textarea; on success draw it, on failure keep the last chart and explain. */
@@ -76,17 +116,24 @@ function apply_data() {
     show_status(error.message, true);
     return;
   }
-  points = parsed.points;
-  x_label_input.value = parsed.x_label;
-  y_label_input.value = parsed.y_label;
-
-  const notes = [`${points.length.toLocaleString('en-US')} points plotted.`];
-  if (parsed.skipped) notes.push(`${parsed.skipped} ${parsed.skipped === 1 ? 'row was' : 'rows were'} skipped because x or y is not a number.`);
-  if (parsed.columns > 2) notes.push('Only the first two columns are used.');
-  show_status(notes.join(' '));
-
+  data = parsed;
+  x_label_input.value = data.x_label;
+  y_label_input.value = data.y_label;
+  show_status(describe_data());
   draw_chart();
   draw_table();
+}
+
+/** Save text as a file: a temporary link to the text, clicked once. */
+function download_text(file_name, text, media_type) {
+  const url = URL.createObjectURL(new Blob([text], { type: media_type }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file_name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 $('apply').addEventListener('click', apply_data);
@@ -99,6 +146,7 @@ csv_input.addEventListener('keydown', (event) => {
 
 for (const input of [x_label_input, y_label_input]) {
   input.addEventListener('input', () => {
+    if (!data) return;
     draw_chart();
     draw_table();
   });
@@ -107,9 +155,17 @@ for (const input of [x_label_input, y_label_input]) {
 for (const radio of document.querySelectorAll('input[name="plot-type"]')) {
   radio.addEventListener('change', () => {
     type = radio.value;
-    draw_chart();
+    if (data) draw_chart();
   });
 }
 
+$('download-csv').addEventListener('click', () => {
+  if (data) download_text(DOWNLOAD_NAME, to_csv(column_headers(), data.rows), 'text/csv;charset=utf-8');
+});
+
+attach_hover($('chart'), tooltip, () => chart && { ...chart, type, x_label: x_label_input.value });
+
 csv_input.value = SAMPLE_CSV;
 apply_data();
+y_label_input.value = SAMPLE_Y_LABEL;
+draw_chart();

@@ -3,11 +3,12 @@
  *
  * The layout is fixed: a 720 x 440 px chart with constant margins, a vertical
  * and a horizontal grid, axis lines on the left and bottom, and a title on
- * each axis. Only the axis ranges are automatic.
+ * each axis. Only the axis ranges are automatic. With two or more series a
+ * legend sits above the plot, which then starts a little lower.
  *
- * render_chart() is a pure function (data in, SVG text out). It never touches
- * the DOM, so it runs unchanged in Node tests, and the page only has to put
- * the returned string into an element.
+ * build_chart() is a pure function (data in, SVG text and point positions
+ * out). It never touches the DOM, so it runs unchanged in Node tests, and the
+ * page only has to put the returned markup into an element.
  */
 import { nice_axis, tick_formatter } from './axis_rendering.js';
 import { compute_interpolation_factor } from '../../../libs/custom/math_operations.js';
@@ -17,15 +18,21 @@ export const HEIGHT = 440;
 const MARGIN = { top: 24, right: 32, bottom: 62, left: 88 };
 const FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-/** Chart colours. The series blue keeps 4.6:1 contrast against the background. */
+/** Chart colours. */
 export const COLORS = {
   background: '#fcfcfb',
   grid: '#e1e0d9',
   axis: '#a8a79f',
   tick_text: '#52514e',
   label_text: '#2b2b29',
-  series: '#2a78d6',
 };
+
+/**
+ * One colour per series, used in this order (the palette of the first
+ * ZeroPlot version). The first blue keeps 4.6:1 contrast against the
+ * background. A ninth series starts again with the first colour.
+ */
+export const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
 
 /** Approximate number of tick intervals per axis. */
 const X_TICKS = 8;
@@ -36,6 +43,20 @@ const MARKER_RING = 2;
 const LINE_WIDTH = 2;
 const TICK_FONT = 11;
 const LABEL_FONT = 12;
+
+/** Legend: distance from the chart's top edge, row height, key width and the gaps around them, in px. */
+const LEGEND_TOP = 12;
+const LEGEND_ROW = 20;
+const LEGEND_KEY = 18;
+const LEGEND_KEY_GAP = 6;
+const LEGEND_ITEM_GAP = 18;
+const LEGEND_PLOT_GAP = 10;
+const LEGEND_FONT = 12;
+/** Longer series names are shortened in the legend. */
+const LEGEND_MAX_TEXT = 180;
+
+/** Average glyph width of sans-serif fonts, as a fraction of the font size. */
+const GLYPH_WIDTH = 0.56;
 
 /**
  * Vertical text alignment as an offset from the alphabetic baseline.
@@ -71,20 +92,22 @@ function text(class_name, x, y, content, { size, weight = 400, fill, anchor = 'm
 
 /**
  * Shorten text that would not fit in `max_width` pixels, using the average
- * glyph width of sans-serif fonts (about 0.56 em).
+ * glyph width of sans-serif fonts.
  */
 function fit_text(content, max_width, size) {
-  const max_chars = Math.floor(max_width / (size * 0.56));
+  const max_chars = Math.floor(max_width / (size * GLYPH_WIDTH));
   return content.length > max_chars ? `${content.slice(0, Math.max(1, max_chars - 1))}…` : content;
 }
 
-/** Smallest and largest value of one coordinate (0 = x, 1 = y). */
-function extent(points, coordinate) {
+/** Smallest and largest value of one coordinate (0 = x, 1 = y) over all series. */
+function extent(series_list, coordinate) {
   let low = Infinity;
   let high = -Infinity;
-  for (const point of points) {
-    low = Math.min(low, point[coordinate]);
-    high = Math.max(high, point[coordinate]);
+  for (const entry of series_list) {
+    for (const point of entry.points) {
+      low = Math.min(low, point[coordinate]);
+      high = Math.max(high, point[coordinate]);
+    }
   }
   return [low, high];
 }
@@ -102,32 +125,86 @@ function pad_domain([d0, d1], [low, high], span_px, pad_px) {
 }
 
 /**
- * Draw a chart.
+ * Arrange the legend entries from left to right, starting a new row when the
+ * next entry would not fit into `max_width` pixels. Text widths are estimated
+ * from the average glyph width, so no DOM is needed.
+ * @param {string[]} names
+ * @param {number} max_width
+ * @returns {{ rows: number, entries: Array<{ label: string, dx: number, row: number }> }}
+ */
+function layout_legend(names, max_width) {
+  let x = 0;
+  let row = 0;
+  const entries = names.map((name) => {
+    const label = fit_text(name, LEGEND_MAX_TEXT, LEGEND_FONT);
+    const width = LEGEND_KEY + LEGEND_KEY_GAP + label.length * LEGEND_FONT * GLYPH_WIDTH;
+    if (x > 0 && x + width > max_width) {
+      row++;
+      x = 0;
+    }
+    const entry = { label, dx: x, row };
+    x += width + LEGEND_ITEM_GAP;
+    return entry;
+  });
+  return { rows: names.length ? row + 1 : 0, entries };
+}
+
+/**
+ * @typedef {object} HitPoint a drawn data point, for hover feedback
+ * @property {number} series position of its series
+ * @property {string} name name of its series
+ * @property {string} color colour of its series
+ * @property {number} x data value
+ * @property {number} y data value
+ * @property {number} px pixel position in the chart
+ * @property {number} py pixel position in the chart
+ */
+
+/**
+ * @typedef {object} Chart
+ * @property {string} svg a standalone SVG document
+ * @property {HitPoint[]} hit_points every drawn point, series by series
+ * @property {{ left: number, right: number, top: number, bottom: number }} plot_area the area inside the axes, in px
+ */
+
+/**
+ * Draw a chart and report where its points are.
  * @param {object} chart
- * @param {Array<[number, number]>} [chart.points] x/y pairs, drawn in this order
+ * @param {Array<{ name: string, points: Array<[number, number]> }>} [chart.series] one entry per line or marker group
+ * @param {Array<[number, number]>} [chart.points] shorthand for a single series named by `y_label`
  * @param {'line'|'scatter'} [chart.type]
  * @param {string} [chart.x_label]
  * @param {string} [chart.y_label]
- * @returns {string} a standalone SVG document
+ * @returns {Chart}
  */
-export function render_chart({ points = [], type = 'line', x_label = 'x', y_label = 'y' } = {}) {
+export function build_chart({ series, points, type = 'line', x_label = 'x', y_label = 'y' } = {}) {
+  const series_list = (series ?? [{ name: y_label, points: points ?? [] }]).map((entry, position) => ({
+    name: String(entry.name ?? `Series ${position + 1}`),
+    points: entry.points ?? [],
+    color: SERIES_COLORS[position % SERIES_COLORS.length],
+    // One point cannot form a line, so it is shown as a marker.
+    markers: type === 'scatter' || entry.points?.length === 1,
+  }));
+  const point_count = series_list.reduce((sum, entry) => sum + entry.points.length, 0);
+  const has_data = point_count > 0;
+  const show_markers = series_list.some((entry) => entry.markers && entry.points.length > 0);
+
   const left = MARGIN.left;
   const right = WIDTH - MARGIN.right;
-  const top = MARGIN.top;
-  const bottom = HEIGHT - MARGIN.bottom;
   const plot_width = right - left;
+  const legend = layout_legend(series_list.length > 1 ? series_list.map((entry) => entry.name) : [], plot_width);
+  const top = legend.rows ? LEGEND_TOP + legend.rows * LEGEND_ROW + LEGEND_PLOT_GAP : MARGIN.top;
+  const bottom = HEIGHT - MARGIN.bottom;
   const plot_height = bottom - top;
-  const has_data = points.length > 0;
-  const show_markers = type === 'scatter' || points.length === 1; // one point cannot form a line
 
   // Automatic axis ranges and ticks.
-  const [x_low, x_high] = has_data ? extent(points, 0) : [0, 1];
-  const [y_low, y_high] = has_data ? extent(points, 1) : [0, 1];
+  const [x_low, x_high] = has_data ? extent(series_list, 0) : [0, 1];
+  const [y_low, y_high] = has_data ? extent(series_list, 1) : [0, 1];
   const x_axis = nice_axis(x_low, x_high, X_TICKS);
   const y_axis = nice_axis(y_low, y_high, Y_TICKS);
   let x_domain = x_axis.domain;
   let y_domain = y_axis.domain;
-  if (show_markers && has_data) {
+  if (show_markers) {
     const pad_px = MARKER_RADIUS + MARKER_RING + 1;
     x_domain = pad_domain(x_domain, [x_low, x_high], plot_width, pad_px);
     y_domain = pad_domain(y_domain, [y_low, y_high], plot_height, pad_px);
@@ -149,15 +226,29 @@ export function render_chart({ points = [], type = 'line', x_label = 'x', y_labe
     if (y !== crisp(bottom)) parts.push(hairline('grid-y', left, y, right, y, COLORS.grid));
   }
 
-  // Data. Markers paint their ring first (paint-order), so the ring only shows
-  // outside the dot and separates overlapping markers.
-  if (has_data && show_markers) {
-    const circles = points.map(([x, y]) => `<circle cx="${num(map_x(x))}" cy="${num(map_y(y))}" r="${MARKER_RADIUS}"/>`).join('');
-    parts.push(`<g class="markers" fill="${COLORS.series}" stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke">${circles}</g>`);
-  } else if (has_data) {
-    const coordinates = points.map(([x, y]) => `${num(map_x(x))},${num(map_y(y))}`).join(' ');
-    parts.push(`<polyline class="series" points="${coordinates}" fill="none" stroke="${COLORS.series}" stroke-width="${LINE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
-  } else {
+  // Data: all lines first, then all markers on top. Markers paint their ring
+  // first (paint-order), so the ring only shows outside the dot and separates
+  // overlapping markers.
+  const lines = [];
+  const markers = [];
+  /** @type {HitPoint[]} */
+  const hit_points = [];
+  series_list.forEach((entry, position) => {
+    if (!entry.points.length) return;
+    const pixels = entry.points.map(([x, y]) => [num(map_x(x)), num(map_y(y))]);
+    entry.points.forEach(([x, y], index) => {
+      hit_points.push({ series: position, name: entry.name, color: entry.color, x, y, px: pixels[index][0], py: pixels[index][1] });
+    });
+    if (entry.markers) {
+      const circles = pixels.map(([px, py]) => `<circle cx="${px}" cy="${py}" r="${MARKER_RADIUS}"/>`).join('');
+      markers.push(`<g class="markers" fill="${entry.color}" stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke">${circles}</g>`);
+    } else {
+      const coordinates = pixels.map(([px, py]) => `${px},${py}`).join(' ');
+      lines.push(`<polyline class="series" points="${coordinates}" fill="none" stroke="${entry.color}" stroke-width="${LINE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
+    }
+  });
+  parts.push(...lines, ...markers);
+  if (!has_data) {
     parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, 'No data', { size: 13, fill: COLORS.tick_text, baseline: 'middle' }));
   }
 
@@ -177,15 +268,42 @@ export function render_chart({ points = [], type = 'line', x_label = 'x', y_labe
     size: LABEL_FONT, weight: 500, fill: COLORS.label_text, baseline: 'top', rotate: -90,
   }));
 
+  // Legend: a short line or a dot in the series colour, then the series name.
+  legend.entries.forEach((entry, position) => {
+    const { color, markers: as_marker } = series_list[position];
+    const x = left + entry.dx;
+    const y = LEGEND_TOP + entry.row * LEGEND_ROW + LEGEND_ROW / 2;
+    parts.push(as_marker
+      ? `<circle class="legend-key" cx="${num(x + LEGEND_KEY / 2)}" cy="${num(y)}" r="${MARKER_RADIUS}" fill="${color}"/>`
+      : `<line class="legend-key" x1="${num(x)}" y1="${num(y)}" x2="${num(x + LEGEND_KEY)}" y2="${num(y)}" stroke="${color}" stroke-width="${LINE_WIDTH}" stroke-linecap="round"/>`);
+    parts.push(text('legend-label', x + LEGEND_KEY + LEGEND_KEY_GAP, y, entry.label, {
+      size: LEGEND_FONT, fill: COLORS.tick_text, anchor: 'start', baseline: 'middle',
+    }));
+  });
+
   // Title and description make the chart readable for screen readers.
   const kind = type === 'scatter' ? 'Scatter plot' : 'Line plot';
-  const description = has_data
-    ? `${kind} of ${y_label} against ${x_label} with ${points.length} points. `
-      + `${x_label} ranges from ${x_low} to ${x_high}, ${y_label} from ${y_low} to ${y_high}.`
-    : `${kind} with no data.`;
+  const several = series_list.length > 1;
+  const names = series_list.map((entry) => entry.name).join(', ');
+  const subject = several ? names : y_label;
+  let description = `${kind} with no data.`;
+  if (has_data) {
+    description = `${kind} of ${several ? `${series_list.length} series (${names})` : y_label} against ${x_label} with ${point_count} points. `
+      + `${x_label} ranges from ${x_low} to ${x_high}, ${several ? 'the values' : y_label} from ${y_low} to ${y_high}.`;
+  }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" `
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" `
     + `role="img" font-family="${escape_xml(FONT_FAMILY)}">`
-    + `<title>${escape_xml(`${y_label} vs ${x_label}`)}</title><desc>${escape_xml(description)}</desc>`
+    + `<title>${escape_xml(`${subject} vs ${x_label}`)}</title><desc>${escape_xml(description)}</desc>`
     + `${parts.join('')}</svg>`;
+  return { svg, hit_points, plot_area: { left, right, top, bottom } };
+}
+
+/**
+ * Draw a chart (see build_chart for the options).
+ * @param {object} [chart]
+ * @returns {string} a standalone SVG document
+ */
+export function render_chart(chart) {
+  return build_chart(chart).svg;
 }

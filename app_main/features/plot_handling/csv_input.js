@@ -1,15 +1,23 @@
 /**
- * CSV input: turns pasted text into x/y points.
+ * CSV input and output: turns pasted text into a clean table of numbers, and
+ * that table back into CSV text.
  *
- * - The first column is x, the second column is y. Further columns are ignored.
- * - A first row that is not numeric is treated as the header; its names become
- *   the default axis labels.
+ * - The first column is x. Every further column that holds numbers is one
+ *   series (one line, or one group of scatter markers).
+ * - A first row whose first cell is not a number is treated as the header; its
+ *   names become the x axis title and the series names.
  * - Commas, semicolons and tabs are accepted as delimiters (detected from the
  *   first line). With semicolons or tabs, decimal commas work too ("1,5"), as
  *   exported by spreadsheet programs in German and many other locales.
  * - Quoted fields ("a, b") and escaped quotes ("") follow RFC 4180.
- * - Rows without two numbers are skipped and counted, not silently dropped.
+ * - The rows are sorted by x, so a line never runs backwards.
+ * - Every x appears once: of several rows with the same x the first one wins.
+ * - Rows without a numeric x and y, and rows with a repeated x, are skipped
+ *   and counted, not silently dropped.
  */
+
+/** The chart has this many series colours; further columns are not plotted. */
+export const MAX_SERIES = 8;
 
 /**
  * Pick the delimiter that occurs most often in the first line (outside quotes).
@@ -88,13 +96,26 @@ export function to_number(value, delimiter = ',') {
   return Number.isFinite(number) ? number : NaN;
 }
 
+/** Give repeated names a number ("Run", "Run (2)") so every series can be told apart. */
+function unique_names(names) {
+  const seen = new Map();
+  return names.map((name) => {
+    const count = (seen.get(name) || 0) + 1;
+    seen.set(name, count);
+    return count > 1 ? `${name} (${count})` : name;
+  });
+}
+
 /**
  * @typedef {object} ParsedData
- * @property {Array<[number, number]>} points x/y pairs in CSV order
  * @property {string} x_label header of the first column ('x' without a header)
- * @property {string} y_label header of the second column ('y' without a header)
- * @property {number} skipped rows that did not contain two numbers
- * @property {number} columns largest number of columns in a row
+ * @property {string} y_label name of the series when there is exactly one, otherwise ''
+ * @property {string[]} names one name per series: the headers of the plotted columns
+ * @property {Array<Array<number|null>>} rows [x, y1, y2, ...] per row, ascending x, every x once; null = no value
+ * @property {number} skipped rows without a numeric x or without any numeric y
+ * @property {number} duplicates rows dropped because an earlier row has the same x
+ * @property {boolean} reordered true when the rows were not in ascending x order
+ * @property {string[]} ignored_columns headers of columns that are not plotted (no numbers, or beyond MAX_SERIES)
  */
 
 /**
@@ -104,34 +125,87 @@ export function to_number(value, delimiter = ',') {
  * @returns {ParsedData}
  */
 export function parse_csv(text) {
-  if (!text || !text.trim()) throw new Error('Paste CSV data first: one row per point, x and y separated by a comma.');
+  if (!text || !text.trim()) throw new Error('Paste CSV data first: one row per x value, x and y separated by a comma.');
   const delimiter = detect_delimiter(text);
-  const rows = read_rows(text, delimiter);
-  const columns = rows.reduce((widest, row) => Math.max(widest, row.length), 0);
-  if (columns < 2) throw new Error('Each row needs two values, x and y, separated by a comma, semicolon or tab.');
+  const records = read_rows(text, delimiter);
+  const width = records.reduce((widest, record) => Math.max(widest, record.length), 0);
+  if (width < 2) throw new Error('Each row needs two values, x and y, separated by a comma, semicolon or tab.');
 
-  const is_numeric_row = (row) => !Number.isNaN(to_number(row[0] ?? '', delimiter)) && !Number.isNaN(to_number(row[1] ?? '', delimiter));
-  const has_header = !is_numeric_row(rows[0]);
-  const header = has_header ? rows[0] : null;
-  const body = has_header ? rows.slice(1) : rows;
+  const has_header = Number.isNaN(to_number(records[0][0] ?? '', delimiter));
+  const header = has_header ? records[0] : null;
+  const body = has_header ? records.slice(1) : records;
+  const values = body.map((record) => Array.from({ length: width }, (_, column) => to_number(record[column] ?? '', delimiter)));
 
-  const points = [];
+  // A column is a series when it holds a number in at least one row that has an x.
+  const plotted = [];
+  const ignored_columns = [];
+  for (let column = 1; column < width; column++) {
+    const has_numbers = values.some((row) => !Number.isNaN(row[0]) && !Number.isNaN(row[column]));
+    const is_blank = records.every((record) => (record[column] ?? '') === '');
+    if (has_numbers && plotted.length < MAX_SERIES) plotted.push(column);
+    else if (!is_blank) ignored_columns.push(header?.[column] || `column ${column + 1}`);
+  }
+
+  const seen_x = new Set();
+  const rows = [];
   let skipped = 0;
-  for (const row of body) {
-    const x = to_number(row[0] ?? '', delimiter);
-    const y = to_number(row[1] ?? '', delimiter);
-    if (Number.isNaN(x) || Number.isNaN(y)) skipped++;
-    else points.push([x, y]);
+  let duplicates = 0;
+  for (const row of values) {
+    const x = row[0];
+    const ys = plotted.map((column) => (Number.isNaN(row[column]) ? null : row[column]));
+    if (Number.isNaN(x) || ys.every((y) => y === null)) skipped++;
+    else if (seen_x.has(x)) duplicates++;
+    else {
+      seen_x.add(x);
+      rows.push([x, ...ys]);
+    }
   }
-  if (!points.length) {
-    throw new Error('No row contains two numbers. Check that the first two columns hold x and y values.');
+  if (!rows.length) {
+    throw new Error('No row contains two numbers. Check that the first column holds x values and the following columns y values.');
   }
 
+  const reordered = rows.some((row, index) => index > 0 && row[0] < rows[index - 1][0]);
+  if (reordered) rows.sort((a, b) => a[0] - b[0]);
+
+  const names = unique_names(plotted.map((column, position) => header?.[column] || (position === 0 ? 'y' : `y${position + 1}`)));
   return {
-    points,
     x_label: header?.[0] || 'x',
-    y_label: header?.[1] || 'y',
+    y_label: names.length === 1 ? names[0] : '',
+    names,
+    rows,
     skipped,
-    columns,
+    duplicates,
+    reordered,
+    ignored_columns,
   };
+}
+
+/**
+ * The points of every series, ready for the chart. Rows in which a series has
+ * no value are left out of that series.
+ * @param {string[]} names one name per series
+ * @param {Array<Array<number|null>>} rows [x, y1, y2, ...] per row
+ * @returns {Array<{ name: string, points: Array<[number, number]> }>}
+ */
+export function to_series(names, rows) {
+  return names.map((name, position) => ({
+    name,
+    points: rows.filter((row) => row[position + 1] !== null).map((row) => [row[0], row[position + 1]]),
+  }));
+}
+
+/** Quote a field that contains a delimiter, a quote or a line break (RFC 4180). */
+function csv_field(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return /[",;\t\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * Write a table as comma-separated CSV text that parse_csv() reads back.
+ * @param {string[]} headers one name per column
+ * @param {Array<Array<number|null>>} rows null becomes an empty field
+ * @returns {string}
+ */
+export function to_csv(headers, rows) {
+  return `${[headers, ...rows].map((fields) => fields.map(csv_field).join(',')).join('\r\n')}\r\n`;
 }

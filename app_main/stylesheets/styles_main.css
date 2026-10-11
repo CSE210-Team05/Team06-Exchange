@@ -114,8 +114,30 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 
 /* The chart is always 720 x 440 px. Narrower screens scroll it sideways
    instead of shrinking it, so labels stay readable. */
-.chart { padding: 8px; overflow-x: auto; }
+.chart { position: relative; padding: 8px; overflow-x: auto; }
 .chart svg { display: block; width: 720px; height: 440px; }
+
+/* Shown beside the hovered data; hover_tooltip.js moves it with a transform. */
+.tooltip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  min-width: 132px;
+  max-width: 280px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgba(11, 11, 11, 0.10);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.tooltip-title { margin-bottom: 4px; color: var(--ink-2); font-size: 11px; }
+.tooltip-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; min-height: 18px; }
+.tooltip-key { width: 8px; height: 8px; border-radius: 50%; }
+.tooltip-name { overflow: hidden; color: var(--ink-2); text-overflow: ellipsis; white-space: nowrap; }
+.tooltip-value { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ------------------------------------------------------------------ settings rail */
 .rail-section { display: grid; gap: 12px; padding: 16px; }

@@ -41,14 +41,18 @@ PAGE BODY START
         <label><input type="radio" name="plot-type" value="scatter"><span>Scatter</span></label>
       </div>
     </div>
-    <div class="chart" id="chart"></div>
+    <!-- The script redraws #chart; the tooltip sits beside it so a redraw keeps it. -->
+    <div class="chart">
+      <div id="chart"></div>
+      <div class="tooltip" id="tooltip" aria-hidden="true" hidden></div>
+    </div>
   </section>
 
   <aside class="panel rail" aria-label="Plot settings">
     <section class="rail-section">
       <h2>Data</h2>
       <label class="field" for="csv">
-        <span>CSV data: first column x, second column y</span>
+        <span>CSV data: first column x, one further column per series</span>
         <textarea id="csv" rows="14" spellcheck="false" autocomplete="off"></textarea>
       </label>
       <div class="actions">
@@ -74,7 +78,10 @@ PAGE BODY START
   <section class="panel table-panel" aria-labelledby="table-title">
     <div class="panel-head">
       <h2 id="table-title">Data table</h2>
-      <span class="hint" id="table-note"></span>
+      <div class="actions">
+        <span class="hint" id="table-note"></span>
+        <button class="button" type="button" id="download-csv">Download CSV</button>
+      </div>
     </div>
     <div class="table-wrap" id="table" tabindex="0" aria-labelledby="table-title"></div>
   </section>
