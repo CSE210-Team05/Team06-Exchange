@@ -16,3 +16,15 @@ https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attrib
 Our defined Classes:
 
 (insert table with element & class)
+
+## JavaScript Naming
+
+Functions, variables, parameters and object properties use snake_case (`parse_csv`, `x_label`).
+
+Constants that never change use UPPER_SNAKE_CASE (`MARKER_RADIUS`).
+
+JavaScript files are named in snake_case as well (`csv_input.js`).
+
+JSDoc type names use PascalCase (`ParsedData`).
+
+Names that belong to the browser or to Node keep their own spelling (`addEventListener`, `textContent`).

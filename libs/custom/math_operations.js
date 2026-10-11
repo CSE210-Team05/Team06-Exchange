@@ -4,17 +4,17 @@
 
 /**
  * Returns the decimal count of a number
- * (i.e. 0 for 5 / 1 for 1.5 / 2 for 0.02)
+ * (i.e. 0 for 5 / 1 for 0.5 / 2 for 0.02)
  * 
  * This is used to scale the graph ticks of the plot axes
  * The scaling should always be done in steps of: 1, 2, 5 or powers of ten
  *
  * A graph step is the distance between two neighbouring ticks on an axis
- * (see tickStep). It is always 1, 2 or 5 times a power of ten, so the power
+ * (see tick_step). It is always 1, 2 or 5 times a power of ten, so the power
  * of ten alone decides the decimal count.
  * 
  * @param {number} decimal_number (distance between two neighbouring ticks, e.g. 0.5)
- * @returns {number} decimal places, 0 for steps of 1 or more
+ * @returns {number} decimal count, 0 for steps of 1 or more
  */
 export function compute_decimals(decimal_number) {
   if (!(decimal_number > 0) || !Number.isFinite(decimal_number)) return 0;
@@ -29,7 +29,7 @@ export function compute_decimals(decimal_number) {
  * @param {number} input_value
  * @param {number} digits
  */
-function round_value(input_value, digits) {
+export function round_value(input_value, digits) {
   const rounded = Number(input_value.toFixed(Math.min(100, Math.max(0, digits))));
   return rounded === 0 ? 0 : rounded;
 }

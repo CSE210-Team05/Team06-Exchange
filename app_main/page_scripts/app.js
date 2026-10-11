@@ -2,8 +2,8 @@
  * The page: paste CSV, apply it, pick line or scatter, edit the axis titles,
  * and read the plotted values in the data table.
  */
-import { parseCSV } from '../src/csv.js';
-import { renderChart } from '../src/chart.js';
+import { parse_csv } from '../features/plot_handling/csv_input.js';
+import { render_chart } from '../features/plot_handling/chart_rendering.js';
 
 /** Example data shown on first load: a ball thrown straight up at 20 m/s. */
 const SAMPLE_CSV = `Time (s),Height (m)
@@ -29,26 +29,26 @@ const SAMPLE_CSV = `Time (s),Height (m)
 const TABLE_LIMIT = 1000;
 
 const $ = (id) => document.getElementById(id);
-const csvInput = $('csv');
-const xLabelInput = $('x-label');
-const yLabelInput = $('y-label');
+const csv_input = $('csv');
+const x_label_input = $('x-label');
+const y_label_input = $('y-label');
 const status = $('status');
 
 let points = [];
 let type = 'line';
 
-function drawChart() {
-  $('chart').innerHTML = renderChart({ points, type, xLabel: xLabelInput.value, yLabel: yLabelInput.value });
+function draw_chart() {
+  $('chart').innerHTML = render_chart({ points, type, x_label: x_label_input.value, y_label: y_label_input.value });
 }
 
-function drawTable() {
+function draw_table() {
   const table = document.createElement('table');
-  const headRow = table.createTHead().insertRow();
-  for (const label of [xLabelInput.value || 'x', yLabelInput.value || 'y']) {
+  const head_row = table.createTHead().insertRow();
+  for (const label of [x_label_input.value || 'x', y_label_input.value || 'y']) {
     const cell = document.createElement('th');
     cell.scope = 'col';
     cell.textContent = label; // textContent: labels come from pasted data
-    headRow.appendChild(cell);
+    head_row.appendChild(cell);
   }
   const body = table.createTBody();
   for (const [x, y] of points.slice(0, TABLE_LIMIT)) {
@@ -62,54 +62,54 @@ function drawTable() {
     : `${points.length.toLocaleString('en-US')} rows`;
 }
 
-function showStatus(message, isError = false) {
+function show_status(message, is_error = false) {
   status.textContent = message;
-  status.classList.toggle('status-error', isError);
+  status.classList.toggle('status-error', is_error);
 }
 
 /** Parse the textarea; on success draw it, on failure keep the last chart and explain. */
-function applyData() {
+function apply_data() {
   let parsed;
   try {
-    parsed = parseCSV(csvInput.value);
+    parsed = parse_csv(csv_input.value);
   } catch (error) {
-    showStatus(error.message, true);
+    show_status(error.message, true);
     return;
   }
   points = parsed.points;
-  xLabelInput.value = parsed.xLabel;
-  yLabelInput.value = parsed.yLabel;
+  x_label_input.value = parsed.x_label;
+  y_label_input.value = parsed.y_label;
 
   const notes = [`${points.length.toLocaleString('en-US')} points plotted.`];
   if (parsed.skipped) notes.push(`${parsed.skipped} ${parsed.skipped === 1 ? 'row was' : 'rows were'} skipped because x or y is not a number.`);
   if (parsed.columns > 2) notes.push('Only the first two columns are used.');
-  showStatus(notes.join(' '));
+  show_status(notes.join(' '));
 
-  drawChart();
-  drawTable();
+  draw_chart();
+  draw_table();
 }
 
-$('apply').addEventListener('click', applyData);
-csvInput.addEventListener('keydown', (event) => {
+$('apply').addEventListener('click', apply_data);
+csv_input.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
     event.preventDefault();
-    applyData();
+    apply_data();
   }
 });
 
-for (const input of [xLabelInput, yLabelInput]) {
+for (const input of [x_label_input, y_label_input]) {
   input.addEventListener('input', () => {
-    drawChart();
-    drawTable();
+    draw_chart();
+    draw_table();
   });
 }
 
 for (const radio of document.querySelectorAll('input[name="plot-type"]')) {
   radio.addEventListener('change', () => {
     type = radio.value;
-    drawChart();
+    draw_chart();
   });
 }
 
-csvInput.value = SAMPLE_CSV;
-applyData();
+csv_input.value = SAMPLE_CSV;
+apply_data();

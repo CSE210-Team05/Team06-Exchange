@@ -6,8 +6,8 @@
  * be served over HTTP. Any static server works (python3 -m http.server,
  * VS Code Live Server, ...); this one only needs Node.
  *
- *   node scripts/serve.js            -> http://localhost:8080
- *   node scripts/serve.js 3000       -> http://localhost:3000
+ *   node server/launch.js            -> http://localhost:8080
+ *   node server/launch.js 3000       -> http://localhost:3000
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
