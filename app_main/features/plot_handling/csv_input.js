@@ -1,6 +1,5 @@
 /**
- * CSV input and output: turns pasted text into a clean table of numbers, and
- * that table back into CSV text.
+ * CSV input: turns pasted text into a clean table of numbers.
  *
  * - The first column is x. Every further column that holds numbers is one
  *   series (one line, or one group of scatter markers).
@@ -192,20 +191,4 @@ export function to_series(names, rows) {
     name,
     points: rows.filter((row) => row[position + 1] !== null).map((row) => [row[0], row[position + 1]]),
   }));
-}
-
-/** Quote a field that contains a delimiter, a quote or a line break (RFC 4180). */
-function csv_field(value) {
-  const text = value === null || value === undefined ? '' : String(value);
-  return /[",;\t\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-/**
- * Write a table as comma-separated CSV text that parse_csv() reads back.
- * @param {string[]} headers one name per column
- * @param {Array<Array<number|null>>} rows null becomes an empty field
- * @returns {string}
- */
-export function to_csv(headers, rows) {
-  return `${[headers, ...rows].map((fields) => fields.map(csv_field).join(',')).join('\r\n')}\r\n`;
 }

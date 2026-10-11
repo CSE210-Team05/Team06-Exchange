@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_SERIES, detect_delimiter, parse_csv, read_rows, to_csv, to_number, to_series } from '../app_main/features/plot_handling/csv_input.js';
+import { MAX_SERIES, detect_delimiter, parse_csv, read_rows, to_number, to_series } from '../app_main/features/plot_handling/csv_input.js';
 
 describe('parse_csv', () => {
   it('reads x and y from the first two columns and the header as labels', () => {
@@ -91,21 +91,6 @@ describe('to_series', () => {
       { name: 'a', points: [[1, 10], [2, 20]] },
       { name: 'b', points: [[2, 200], [3, 300]] },
     ]);
-  });
-});
-
-describe('to_csv', () => {
-  it('writes text that parse_csv reads back unchanged', () => {
-    const headers = ['Time (s)', 'Speed, max', 'say "hi"', 'a;b'];
-    const rows = [[-1.5, 0.1, null, 1e21], [0, null, 3, 4], [2.25, 7, 8, 9]];
-    const parsed = parse_csv(to_csv(headers, rows));
-    assert.equal(parsed.x_label, headers[0]);
-    assert.deepEqual(parsed.names, headers.slice(1));
-    assert.deepEqual(parsed.rows, rows);
-  });
-
-  it('quotes only where needed and ends every row with a line break', () => {
-    assert.equal(to_csv(['x', 'a, b'], [[1, null]]), 'x,"a, b"\r\n1,\r\n');
   });
 });
 

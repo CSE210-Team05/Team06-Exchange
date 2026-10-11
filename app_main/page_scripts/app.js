@@ -1,11 +1,12 @@
 /**
  * The page: paste CSV, apply it, pick line or scatter, edit the axis titles,
  * point at the plot to read values, read all plotted values in the data
- * table and download them as CSV.
+ * table and download the plot as SVG or PNG.
  */
-import { MAX_SERIES, parse_csv, to_csv, to_series } from '../features/plot_handling/csv_input.js';
+import { MAX_SERIES, parse_csv, to_series } from '../features/plot_handling/csv_input.js';
 import { build_chart } from '../features/plot_handling/chart_rendering.js';
 import { attach_hover } from '../features/plot_handling/hover_tooltip.js';
+import { download_blob, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
 
 /**
  * Example data shown on first load: two balls thrown straight up, at 20 m/s
@@ -32,9 +33,10 @@ const SAMPLE_CSV = `Time (s),Ball A,Ball B
 /** With several series the y axis has no header to take its title from. */
 const SAMPLE_Y_LABEL = 'Height (m)';
 
-/** The table shows at most this many rows; the plot and the download always hold every row. */
+/** The table shows at most this many rows; the plot always holds every row. */
 const TABLE_LIMIT = 1000;
-const DOWNLOAD_NAME = 'zeroplot-data.csv';
+/** File name of a downloaded plot, without the extension. */
+const DOWNLOAD_NAME = 'zeroplot-plot';
 
 const $ = (id) => document.getElementById(id);
 const csv_input = $('csv');
@@ -52,7 +54,7 @@ let chart = null;
 const count_text = (count) => count.toLocaleString('en-US');
 
 /**
- * Column headers of the data table and the download: x, then one per series.
+ * Column headers of the data table: x, then one per series.
  * A single series is named by the y axis title, several by their CSV headers.
  */
 function column_headers() {
@@ -124,18 +126,6 @@ function apply_data() {
   draw_table();
 }
 
-/** Save text as a file: a temporary link to the text, clicked once. */
-function download_text(file_name, text, media_type) {
-  const url = URL.createObjectURL(new Blob([text], { type: media_type }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = file_name;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 $('apply').addEventListener('click', apply_data);
 csv_input.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -159,8 +149,18 @@ for (const radio of document.querySelectorAll('input[name="plot-type"]')) {
   });
 }
 
-$('download-csv').addEventListener('click', () => {
-  if (data) download_text(DOWNLOAD_NAME, to_csv(column_headers(), data.rows), 'text/csv;charset=utf-8');
+// Both downloads use the chart's own markup, not the page, so a hover highlight never ends up in the file.
+$('download-svg').addEventListener('click', () => {
+  if (chart) download_blob(`${DOWNLOAD_NAME}.svg`, svg_blob(chart.svg));
+});
+
+$('download-png').addEventListener('click', async () => {
+  if (!chart) return;
+  try {
+    download_blob(`${DOWNLOAD_NAME}.png`, await svg_to_png(chart.svg));
+  } catch (error) {
+    show_status(error.message, true);
+  }
 });
 
 attach_hover($('chart'), tooltip, () => chart && { ...chart, type, x_label: x_label_input.value });

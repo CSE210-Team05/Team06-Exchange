@@ -8,8 +8,8 @@ PAGE HEAD START (meta settings & stylesheet reference)
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ZeroPlot</title>
-<meta name="description" content="Paste CSV data and draw a line or scatter plot with ZeroPlot, a plotting library written from scratch in plain JavaScript.">
+<title>Plotting Library: Warmup Exercise Team 06</title>
+<meta name="description" content="Paste CSV data and draw a line or scatter plot with a plotting library written from scratch in plain JavaScript.">
 <link rel="stylesheet" href="app_main/stylesheets/styles_main.css">
 </head>
 
@@ -19,18 +19,8 @@ PAGE BODY START
 
 <body>
 <header class="topbar">
-  <!-- Logo Section -->
-  <span class="brand">
-    <!-- Logo Creation -->
-    <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true">
-      <rect x="0.5" y="0.5" width="27" height="27" rx="7" fill="#eaf1fb" stroke="#d3d2cb"/>
-      <path d="M6 5.5V22h16.5" fill="none" stroke="#8a8983" stroke-width="1.5" stroke-linecap="round"/>
-      <path d="M8.5 18.5 13 14l3 2.5 5-7" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="13" cy="14" r="1.9" fill="#2a78d6"/>
-      <circle cx="21" cy="9.5" r="1.9" fill="#2a78d6"/>
-    </svg>
-    <span class="brand-name">ZeroPlot</span>
-  </span>
+  <!-- Page Title -->
+  <h1 class="page-title">Plotting Library: Warmup Exercise Team 06</h1>
 </header>
 
 <main class="layout">
@@ -39,6 +29,10 @@ PAGE BODY START
       <div class="segmented" role="radiogroup" aria-label="Plot type">
         <label><input type="radio" name="plot-type" value="line" checked><span>Line</span></label>
         <label><input type="radio" name="plot-type" value="scatter"><span>Scatter</span></label>
+      </div>
+      <div class="actions">
+        <button class="button" type="button" id="download-svg">Download SVG</button>
+        <button class="button" type="button" id="download-png">Download PNG</button>
       </div>
     </div>
     <!-- The script redraws #chart; the tooltip sits beside it so a redraw keeps it. -->
@@ -78,10 +72,7 @@ PAGE BODY START
   <section class="panel table-panel" aria-labelledby="table-title">
     <div class="panel-head">
       <h2 id="table-title">Data table</h2>
-      <div class="actions">
-        <span class="hint" id="table-note"></span>
-        <button class="button" type="button" id="download-csv">Download CSV</button>
-      </div>
+      <span class="hint" id="table-note"></span>
     </div>
     <div class="table-wrap" id="table" tabindex="0" aria-labelledby="table-title"></div>
   </section>
