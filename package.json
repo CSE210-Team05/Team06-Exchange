@@ -11,7 +11,7 @@
     "test:smoke": "node scripts/smoke.js",
     "check": "npm run lint && npm test && npm run test:smoke"
   },
-  "author": "Philipp",
+  "author": "Team 06",
   "license": "MIT",
   "engines": {
     "node": ">=20"
