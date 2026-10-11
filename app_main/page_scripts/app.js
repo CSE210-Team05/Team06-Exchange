@@ -37,9 +37,12 @@ const SAMPLE_Y_LABEL = 'Height (m)';
 const TABLE_LIMIT = 1000;
 /** File name of a downloaded plot, without the extension. */
 const DOWNLOAD_NAME = 'zeroplot-plot';
+/** The largest CSV file read into the textarea, roughly 1 MB of text. */
+const MAX_FILE_SIZE = 1024 * 1024;
 
 const $ = (id) => document.getElementById(id);
 const csv_input = $('csv');
+const file_input = $('file-input');
 const x_label_input = $('x-label');
 const y_label_input = $('y-label');
 const status = $('status');
@@ -126,7 +129,31 @@ function apply_data() {
   draw_table();
 }
 
+/**
+ * Read a CSV file into the textarea and apply it. The hidden file input is
+ * clicked by the Load CSV file button; picking a file loads it, cancelling
+ * changes nothing.
+ */
+async function load_file() {
+  const picked = file_input.files[0];
+  file_input.value = ''; // so picking the same file again fires change again
+  if (!picked) return;
+  if (picked.size > MAX_FILE_SIZE) {
+    show_status(`"${picked.name}" is larger than 1 MB. Paste smaller CSV data instead.`, true);
+    return;
+  }
+  try {
+    csv_input.value = await picked.text();
+  } catch {
+    show_status(`"${picked.name}" could not be read.`, true);
+    return;
+  }
+  apply_data();
+}
+
 $('apply').addEventListener('click', apply_data);
+$('load-file').addEventListener('click', () => file_input.click());
+file_input.addEventListener('change', load_file);
 csv_input.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
     event.preventDefault();

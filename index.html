@@ -52,7 +52,10 @@ PAGE BODY START
       <div class="actions">
         <button class="button button-primary" type="button" id="apply">Apply data</button>
         <span class="hint">or <kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+        <button class="button" type="button" id="load-file">Load CSV file</button>
       </div>
+      <!-- Clicking Load CSV file clicks this hidden input to open the file picker. -->
+      <input type="file" id="file-input" accept=".csv,.tsv,.txt" hidden>
       <p class="status" id="status" role="status"></p>
     </section>
 
