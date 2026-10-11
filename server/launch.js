@@ -54,5 +54,5 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`ZeroPlot: http://localhost:${PORT}/`);
+  console.log(`ZeroPlot: http://localhost:${server.address().port}/`);
 });
