@@ -4,7 +4,8 @@
  * table and download the plot as SVG or PNG.
  */
 import { MAX_SERIES, parse_csv, to_series } from '../features/plot_handling/csv_input.js';
-import { build_chart } from '../features/plot_handling/chart_rendering.js';
+import { build_chart, SERIES_COLORS } from '../features/plot_handling/chart_rendering.js';
+import { attach_navigation } from '../features/plot_handling/chart_interaction.js';
 import { attach_hover } from '../features/plot_handling/hover_tooltip.js';
 import { download_blob, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
 
@@ -51,6 +52,10 @@ const tooltip = $('tooltip');
 /** @type {import('../features/plot_handling/csv_input.js').ParsedData | null} */
 let data = null;
 let type = 'line';
+let visibility = [];
+let viewport = null;
+let full_domains = null;
+const clip_id = `plot-${crypto.randomUUID()}`;
 /** @type {import('../features/plot_handling/chart_rendering.js').Chart | null} */
 let chart = null;
 
@@ -67,9 +72,33 @@ function column_headers() {
 
 function draw_chart() {
   const series = to_series(column_headers().slice(1), data.rows);
-  chart = build_chart({ series, type, x_label: x_label_input.value, y_label: y_label_input.value });
+  chart = build_chart({ series, type, visibility, viewport, full_domains, clip_id, x_label: x_label_input.value, y_label: y_label_input.value });
+  full_domains ??= chart.full_domains;
   $('chart').innerHTML = chart.svg;
   tooltip.hidden = true; // it described the previous drawing
+}
+
+/** Native controls keep focus while the chart redraws; CSV names are text only. */
+function draw_visibility_controls() {
+  const controls = data.names.map((name, index) => {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = visibility[index];
+    input.addEventListener('change', () => {
+      visibility[index] = input.checked;
+      draw_chart();
+    });
+    const key = document.createElement('span');
+    key.className = 'series-key';
+    key.style.background = SERIES_COLORS[index % SERIES_COLORS.length];
+    key.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span');
+    text.textContent = name;
+    label.append(input, key, text);
+    return label;
+  });
+  $('series-controls').replaceChildren(...controls);
 }
 
 function draw_table() {
@@ -121,7 +150,12 @@ function apply_data() {
     show_status(error.message, true);
     return;
   }
+  navigation.cancel();
+  viewport = null;
+  full_domains = null;
   data = parsed;
+  visibility = data.names.map(() => true);
+  draw_visibility_controls();
   x_label_input.value = data.x_label;
   y_label_input.value = data.y_label;
   show_status(describe_data());
@@ -190,7 +224,15 @@ $('download-png').addEventListener('click', async () => {
   }
 });
 
-attach_hover($('chart'), tooltip, () => chart && { ...chart, type, x_label: x_label_input.value });
+const clear_hover = () => {
+  tooltip.hidden = true;
+  $('chart').querySelector('.hover')?.remove();
+};
+const navigation = attach_navigation($('chart'), $('view-controls'), () => chart, (view) => {
+  viewport = view;
+  draw_chart();
+}, clear_hover);
+attach_hover($('chart'), tooltip, () => !navigation.is_dragging() && chart && { ...chart, type, x_label: x_label_input.value });
 
 csv_input.value = SAMPLE_CSV;
 apply_data();

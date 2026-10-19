@@ -57,3 +57,16 @@ describe('find_hover_points without data', () => {
     assert.deepEqual(find_hover_points([], 10, 10, 'scatter'), []);
   });
 });
+
+describe('hover with hidden series', () => {
+  for (const type of ['line', 'scatter']) {
+    it(`uses only visible targets and handles all hidden in ${type}`, () => {
+      const { hit_points } = build_chart({ series: two_series, type, visibility: [false, true] });
+      const target = hit_points[0];
+      const found = find_hover_points(hit_points, target.px, target.py, type);
+      assert.deepEqual(found.map((point) => point.series), [1]);
+      const empty = build_chart({ series: two_series, type, visibility: [false, false] });
+      assert.deepEqual(find_hover_points(empty.hit_points, target.px, target.py, type), []);
+    });
+  }
+});
