@@ -31,3 +31,11 @@ npm start
 ```
 
 Open http://localhost:8080/.
+
+## Verify the deployment
+
+After a deploy, check the live site:
+
+```sh
+SMOKE_URL=https://team06-exchange.vercel.app/ npm run test:smoke
+```
