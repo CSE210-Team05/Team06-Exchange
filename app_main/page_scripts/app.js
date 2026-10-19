@@ -49,6 +49,24 @@ const y_label_input = $('y-label');
 const status = $('status');
 const tooltip = $('tooltip');
 
+// Dark Mode toggle
+const theme_toggle = $('theme-toggle');
+
+// Restore the user's previously selected theme
+const saved_theme = localStorage.getItem('theme');
+const is_dark = saved_theme === 'dark';
+
+document.documentElement.dataset.theme = is_dark ? 'dark' : 'light';
+theme_toggle.checked = is_dark;
+
+// Switch themes when the toggle is clicked
+theme_toggle.addEventListener('change', () => {
+  const theme = theme_toggle.checked ? 'dark' : 'light';
+
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('theme', theme);
+});
+
 /** @type {import('../features/plot_handling/csv_input.js').ParsedData | null} */
 let data = null;
 let type = 'line';
