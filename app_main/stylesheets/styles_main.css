@@ -160,12 +160,19 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
   outline-offset: 3px;
 }
 
-.settings-placeholder {
-  padding: 10px 12px;
-  border-top: 1px solid var(--line);
-  color: var(--ink-3);
-}
 .settings-option { border-top: 1px solid var(--line); }
+.settings-download {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.settings-download:hover { background: var(--surface-sunk); }
 
 /* ------------------------------------------------------------------ layout */
 .layout {

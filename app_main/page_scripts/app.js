@@ -7,7 +7,7 @@ import { MAX_SERIES, parse_csv, to_series } from '../features/plot_handling/csv_
 import { build_chart, SERIES_COLORS } from '../features/plot_handling/chart_rendering.js';
 import { attach_navigation } from '../features/plot_handling/chart_interaction.js';
 import { attach_hover } from '../features/plot_handling/hover_tooltip.js';
-import { download_blob, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
+import { download_blob, download_csv, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
 
 /**
  * Example data shown on first load: two balls thrown straight up, at 20 m/s
@@ -219,6 +219,11 @@ log_toggle.addEventListener('change', () => {
   viewport = null;
   full_domains = null;
   draw_chart();
+});
+
+$('download-csv').addEventListener('click', () => {
+  download_csv(csv_input.value);
+  set_settings_open(false);
 });
 
 /**
