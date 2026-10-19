@@ -186,6 +186,7 @@ function layout_legend(names, max_width) {
 export function build_chart({ series, points, type = 'line', scale = 'linear', x_label = 'x', y_label = 'y', visibility, viewport, full_domains, clip_id } = {}) {
   const is_logarithmic = scale === 'log';
   const is_plottable = ([x, y]) => !is_logarithmic || (x > 0 && y > 0);
+  const has_line_segment = (source) => source.some((point, index) => index > 0 && is_plottable(point) && is_plottable(source[index - 1]));
   const transform = (value) => is_logarithmic ? Math.log10(value) : value;
   const untransform = (value) => is_logarithmic ? 10 ** value : value;
   const series_list = (series ?? [{ name: y_label, points: points ?? [] }]).map((entry, position) => {
@@ -197,8 +198,8 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
       plotted_points,
       color: SERIES_COLORS[position % SERIES_COLORS.length],
       visible: visibility?.[position] !== false,
-      // One plottable point cannot form a line, so it is shown as a marker.
-      markers: type === 'scatter' || plotted_points.length === 1,
+      // If exclusions leave no consecutive pair, the remaining points are markers.
+      markers: type === 'scatter' || (plotted_points.length > 0 && !has_line_segment(original_points)),
     };
   });
   const point_count = series_list.reduce((sum, entry) => sum + entry.plotted_points.length, 0);

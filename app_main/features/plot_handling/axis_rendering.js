@@ -90,14 +90,24 @@ export function logarithmic_axis(low, high, count) {
     const step = Math.max(1, Math.ceil((last - first) / Math.max(1, count)));
     const ticks = [];
     for (let exponent = first; exponent <= last; exponent += step) ticks.push(exponent);
-    if (ticks.at(-1) !== last) ticks.push(last);
     axis = { domain: [first, last], ticks, step };
   }
 
-  const raw_ticks = axis.ticks.map((value) => 10 ** value);
-  const raw_step = raw_ticks.length > 1 ? Math.abs(raw_ticks[1] - raw_ticks[0]) : raw_ticks[0];
-  const format_raw = tick_formatter(raw_ticks, raw_step);
-  return { ...axis, format: (value) => format_raw(10 ** value) };
+  return { ...axis, format: (value) => format_log_value(10 ** value) };
+}
+
+/** Log ticks use independent compact labels so distant magnitudes never round to the same text. */
+function format_log_value(value) {
+  const compact = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+  if (value >= 1e4) {
+    const [unit, suffix] = compact.find(([size]) => value >= size);
+    return `${Number((value / unit).toPrecision(3))}${suffix}`;
+  }
+  if (value < 1e-3) {
+    const [mantissa, exponent] = value.toExponential(2).split('e');
+    return `${Number(mantissa)}e${exponent.replace('-', MINUS).replace('+', '')}`;
+  }
+  return String(Number(value.toPrecision(3)));
 }
 
 /**

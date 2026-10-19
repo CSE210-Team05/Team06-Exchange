@@ -180,10 +180,34 @@ describe('logarithmic view', () => {
     assert.deepEqual(points, before);
   });
 
+  it('maps valid data safely when zero and negative values are present', () => {
+    const points = [[-10, 5], [0, 10], [1, -2], [10, 10], [100, 100]];
+    const chart = build_chart({ points, type: 'scatter', scale: 'log' });
+
+    assert.equal(chart.excluded_points, 3);
+    assert.deepEqual(chart.hit_points.map(({ x, y }) => [x, y]), [[10, 10], [100, 100]]);
+    assert.ok(chart.hit_points.every(({ px, py }) => Number.isFinite(px) && Number.isFinite(py)));
+    assert.ok(!chart.svg.includes('NaN'));
+    assert.ok(!chart.svg.includes('undefined'));
+  });
+
   it('shows an explanatory empty state when no positive points remain', () => {
     const chart = build_chart({ points: [[0, 1], [2, -1]], scale: 'log' });
     assert.deepEqual(texts(chart.svg, 'empty'), ['No positive data']);
     assert.equal(chart.excluded_points, 2);
+  });
+
+  it('uses a marker legend when exclusions leave no line segment', () => {
+    const chart = build_chart({
+      series: [
+        { name: 'Broken', points: [[1, 1], [10, 0], [100, 100]] },
+        { name: 'Connected', points: [[1, 1], [10, 10]] },
+      ],
+      scale: 'log',
+    });
+    const keys = elements(chart.svg, 'legend-key');
+    assert.match(keys[0], /^<circle/);
+    assert.match(keys[1], /^<line/);
   });
 });
 
