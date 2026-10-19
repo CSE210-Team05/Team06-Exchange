@@ -71,6 +71,36 @@ export function nice_axis(low, high, count) {
 }
 
 /**
+ * Axis for values already transformed with log10. Whole powers of ten are
+ * used across broad ranges; a regular nice axis keeps labels useful while
+ * zoomed into less than one decade.
+ */
+export function logarithmic_axis(low, high, count) {
+  let start = Math.min(low, high);
+  let stop = Math.max(low, high);
+  if (!Number.isFinite(start) || !Number.isFinite(stop)) [start, stop] = [0, 1];
+  if (start === stop) [start, stop] = [start - 0.5, stop + 0.5];
+
+  let axis;
+  if (stop - start < 1) {
+    axis = nice_axis(start, stop, count);
+  } else {
+    const first = Math.floor(start);
+    const last = Math.ceil(stop);
+    const step = Math.max(1, Math.ceil((last - first) / Math.max(1, count)));
+    const ticks = [];
+    for (let exponent = first; exponent <= last; exponent += step) ticks.push(exponent);
+    if (ticks.at(-1) !== last) ticks.push(last);
+    axis = { domain: [first, last], ticks, step };
+  }
+
+  const raw_ticks = axis.ticks.map((value) => 10 ** value);
+  const raw_step = raw_ticks.length > 1 ? Math.abs(raw_ticks[1] - raw_ticks[0]) : raw_ticks[0];
+  const format_raw = tick_formatter(raw_ticks, raw_step);
+  return { ...axis, format: (value) => format_raw(10 ** value) };
+}
+
+/**
  * Formatter for the tick labels of one axis. All labels share one precision
  * (0.0, 0.5, 1.0), long numbers use compact units (5K, 2.5M), and negative
  * numbers get the typographic minus sign, which is as wide as a plus sign.

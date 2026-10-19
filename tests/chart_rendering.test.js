@@ -158,6 +158,35 @@ describe('build_chart', () => {
   });
 });
 
+describe('logarithmic view', () => {
+  it('spaces decades evenly while retaining original hover values', () => {
+    const chart = build_chart({ points: [[1, 1], [10, 10], [100, 100]], type: 'scatter', scale: 'log' });
+    const [first, second, third] = chart.hit_points;
+    assert.ok(Math.abs((second.px - first.px) - (third.px - second.px)) < 0.02);
+    assert.deepEqual(chart.hit_points.map(({ x, y }) => [x, y]), [[1, 1], [10, 10], [100, 100]]);
+    assert.deepEqual(texts(chart.svg, 'tick-x'), ['1', '10', '100']);
+    assert.match(chart.svg, /Logarithmic scale/);
+  });
+
+  it('excludes non-positive points and breaks lines without changing the input', () => {
+    const points = [[1, 1], [10, 0], [100, 100]];
+    const before = structuredClone(points);
+    const chart = build_chart({ points, scale: 'log' });
+    assert.equal(chart.excluded_points, 1);
+    assert.deepEqual(chart.hit_points.map(({ x, y }) => [x, y]), [[1, 1], [100, 100]]);
+    assert.equal(elements(chart.svg, 'series').length, 0);
+    assert.equal((chart.svg.match(/<circle /g) || []).length, 2);
+    assert.match(chart.svg, /1 non-positive point was not plotted/);
+    assert.deepEqual(points, before);
+  });
+
+  it('shows an explanatory empty state when no positive points remain', () => {
+    const chart = build_chart({ points: [[0, 1], [2, -1]], scale: 'log' });
+    assert.deepEqual(texts(chart.svg, 'empty'), ['No positive data']);
+    assert.equal(chart.excluded_points, 2);
+  });
+});
+
 describe('series visibility', () => {
   for (const type of ['line', 'scatter']) {
     it(`removes hidden marks and targets with stable identity and geometry in ${type}`, () => {

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { MINUS, nice_axis, tick_formatter, tick_step } from '../app_main/features/plot_handling/axis_rendering.js';
+import { MINUS, logarithmic_axis, nice_axis, tick_formatter, tick_step } from '../app_main/features/plot_handling/axis_rendering.js';
 import { compute_decimals, compute_interpolation_factor } from '../libs/custom/math_operations.js';
 
 describe('tick_step (1-2-5 rule)', () => {
@@ -41,6 +41,15 @@ describe('nice_axis', () => {
 
   it('never returns -0', () => {
     assert.ok(nice_axis(-2, 2, 4).ticks.every((tick) => !Object.is(tick, -0)));
+  });
+});
+
+describe('logarithmic_axis', () => {
+  it('uses evenly spaced powers of ten with labels in the original units', () => {
+    const axis = logarithmic_axis(0, 3, 8);
+    assert.deepEqual(axis.domain, [0, 3]);
+    assert.deepEqual(axis.ticks, [0, 1, 2, 3]);
+    assert.deepEqual(axis.ticks.map(axis.format), ['1', '10', '100', '1000']);
   });
 });
 
