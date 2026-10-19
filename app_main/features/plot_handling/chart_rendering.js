@@ -11,6 +11,7 @@
  * page only has to put the returned markup into an element.
  */
 import { nice_axis, tick_formatter } from './axis_rendering.js';
+import { clamp_view } from './viewport.js';
 import { compute_interpolation_factor } from '../../../libs/custom/math_operations.js';
 
 export const WIDTH = 720;
@@ -176,9 +177,12 @@ function layout_legend(names, max_width) {
  * @param {'line'|'scatter'} [chart.type]
  * @param {string} [chart.x_label]
  * @param {string} [chart.y_label]
+ * @param {{ x: number[], y: number[] }} [chart.viewport] explicit view, clamped to full domains
+ * @param {{ x: number[], y: number[] }} [chart.full_domains] stable padded bounds supplied by the application
+ * @param {string} [chart.clip_id] unique per mounted chart; allocated outside this pure renderer
  * @returns {Chart}
  */
-export function build_chart({ series, points, type = 'line', x_label = 'x', y_label = 'y', visibility } = {}) {
+export function build_chart({ series, points, type = 'line', x_label = 'x', y_label = 'y', visibility, viewport, full_domains, clip_id } = {}) {
   const series_list = (series ?? [{ name: y_label, points: points ?? [] }]).map((entry, position) => ({
     name: String(entry.name ?? `Series ${position + 1}`),
     points: entry.points ?? [],
@@ -205,14 +209,25 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   // Automatic axis ranges and ticks.
   const [x_low, x_high] = has_data ? extent(series_list, 0) : [0, 1];
   const [y_low, y_high] = has_data ? extent(series_list, 1) : [0, 1];
-  const x_axis = nice_axis(x_low, x_high, X_TICKS);
-  const y_axis = nice_axis(y_low, y_high, Y_TICKS);
+  let x_axis = nice_axis(x_low, x_high, X_TICKS);
+  let y_axis = nice_axis(y_low, y_high, Y_TICKS);
   let x_domain = x_axis.domain;
   let y_domain = y_axis.domain;
   if (show_markers) {
     const pad_px = MARKER_RADIUS + MARKER_RING + 1;
     x_domain = pad_domain(x_domain, [x_low, x_high], plot_width, pad_px);
     y_domain = pad_domain(y_domain, [y_low, y_high], plot_height, pad_px);
+  }
+  const full = full_domains ? clamp_view(full_domains, full_domains) : { x: x_domain, y: y_domain };
+  const view = clamp_view(viewport, full);
+  [x_domain, y_domain] = [view.x, view.y];
+  if (viewport) {
+    const viewport_axis = (domain, count) => {
+      const axis = nice_axis(...domain, count);
+      return { ...axis, ticks: axis.ticks.filter((value) => value >= domain[0] && value <= domain[1]) };
+    };
+    x_axis = viewport_axis(x_domain, X_TICKS);
+    y_axis = viewport_axis(y_domain, Y_TICKS);
   }
   const map_x = compute_interpolation_factor(x_domain, [left, right]);
   const map_y = compute_interpolation_factor(y_domain, [bottom, top]);
@@ -242,6 +257,7 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
     if (!entry.visible || !entry.points.length) return;
     const pixels = entry.points.map(([x, y]) => [num(map_x(x)), num(map_y(y))]);
     entry.points.forEach(([x, y], index) => {
+      if (x < x_domain[0] || x > x_domain[1] || y < y_domain[0] || y > y_domain[1]) return;
       hit_points.push({ series: position, name: entry.name, color: entry.color, x, y, px: pixels[index][0], py: pixels[index][1] });
     });
     if (entry.markers) {
@@ -252,7 +268,11 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
       lines.push(`<polyline class="series" points="${coordinates}" fill="none" stroke="${entry.color}" stroke-width="${LINE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
     }
   });
-  parts.push(...lines, ...markers);
+  // Keep all line vertices, including those outside the view, so crossing segments survive.
+  // Without a caller ID, a nested SVG provides local rectangular clipping without global IDs.
+  const clip = clip_id ? ` clip-path="url(#${escape_xml(clip_id)})"` : '';
+  if (clip_id) parts.push(`<defs><clipPath id="${escape_xml(clip_id)}"><rect x="${left}" y="${top}" width="${plot_width}" height="${plot_height}"/></clipPath></defs>`);
+  parts.push(clip_id ? `<g class="data"${clip}>` : `<svg class="data" x="${left}" y="${top}" width="${plot_width}" height="${plot_height}" viewBox="${left} ${top} ${plot_width} ${plot_height}" overflow="hidden">`, ...lines, ...markers, clip_id ? '</g>' : '</svg>');
   if (all_hidden || !has_data) {
     parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, all_hidden ? 'No series selected' : 'No data', { size: 13, fill: COLORS.tick_text, baseline: 'middle' }));
   }
@@ -300,11 +320,12 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
       + `${x_label} ranges from ${x_low} to ${x_high}, ${several ? 'the values' : y_label} from ${y_low} to ${y_high}.`;
   }
 
+  if (viewport) description += ` Viewport: ${x_label} ${x_domain[0]} to ${x_domain[1]}; ${y_label} ${y_domain[0]} to ${y_domain[1]}.`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" `
     + `role="img" font-family="${escape_xml(FONT_FAMILY)}">`
     + `<title>${escape_xml(`${subject} vs ${x_label}`)}</title><desc>${escape_xml(description)}</desc>`
     + `${parts.join('')}</svg>`;
-  return { svg, hit_points, plot_area: { left, right, top, bottom } };
+  return { svg, hit_points, full_domains: full, viewport: view, clip_id, plot_area: { left, right, top, bottom } };
 }
 
 /**

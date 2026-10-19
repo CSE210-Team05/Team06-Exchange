@@ -9,7 +9,8 @@
  * find_hover_points() is a pure function and is tested in Node.
  * attach_hover() is the only part that touches the DOM.
  */
-import { COLORS, MARKER_RADIUS, WIDTH } from './chart_rendering.js';
+import { svg_pointer } from './chart_interaction.js';
+import { COLORS, MARKER_RADIUS } from './chart_rendering.js';
 
 /** Scatter plot: a point is picked up to this many pixels away from the pointer. */
 export const HOVER_RADIUS = 32;
@@ -139,10 +140,9 @@ export function attach_hover(host, tooltip, get_chart) {
       hide();
       return;
     }
-    // The chart is shown at its natural size, so the scale is 1 unless a stylesheet resizes it.
-    const scale = WIDTH / box.width;
-    const px = (event.clientX - box.left) * scale;
-    const py = (event.clientY - box.top) * scale;
+    const pointer = svg_pointer(svg, event);
+    if (!pointer) { hide(); return; }
+    const { x: px, y: py } = pointer;
     const { left, right, top, bottom } = chart.plot_area;
     const inside = px >= left && px <= right && py >= top && py <= bottom;
     const found = inside ? find_hover_points(chart.hit_points, px, py, chart.type) : [];
@@ -154,9 +154,14 @@ export function attach_hover(host, tooltip, get_chart) {
     // The highlight lives inside the chart's <svg>, so it disappears with the chart on a redraw.
     let highlight = svg.querySelector('.hover');
     if (!highlight) {
-      highlight = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      highlight = document.createElementNS('http://www.w3.org/2000/svg', chart.clip_id ? 'g' : 'svg');
+      if (!chart.clip_id) {
+        const a = chart.plot_area;
+        for (const [name, value] of Object.entries({ x: a.left, y: a.top, width: a.right - a.left, height: a.bottom - a.top, viewBox: `${a.left} ${a.top} ${a.right - a.left} ${a.bottom - a.top}`, overflow: 'hidden' })) highlight.setAttribute(name, value);
+      }
       highlight.setAttribute('class', 'hover');
       highlight.setAttribute('pointer-events', 'none');
+      if (chart.clip_id) highlight.setAttribute('clip-path', `url(#${chart.clip_id})`);
       svg.appendChild(highlight);
     }
     highlight.innerHTML = highlight_markup(found, chart.type, chart.plot_area);
@@ -164,7 +169,11 @@ export function attach_hover(host, tooltip, get_chart) {
     fill_tooltip(tooltip, found, chart.x_label);
     tooltip.hidden = false;
     const anchor_y = chart.type === 'scatter' ? found[0].py : py;
-    place_tooltip(tooltip, host, found[0].px / scale, anchor_y / scale, box.width, box.height);
+    const anchor = svg.createSVGPoint();
+    anchor.x = found[0].px;
+    anchor.y = anchor_y;
+    const screen = anchor.matrixTransform(svg.getScreenCTM());
+    place_tooltip(tooltip, host, screen.x - box.left, screen.y - box.top, box.width, box.height);
   };
 
   host.addEventListener('pointermove', show);
