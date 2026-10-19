@@ -35,6 +35,11 @@ PAGE BODY START
         <button class="button" type="button" id="download-png">Download PNG</button>
       </div>
     </div>
+    <fieldset class="series-controls" aria-describedby="series-note">
+      <legend>Series visibility</legend>
+      <p class="hint" id="series-note">Controls affect the chart only. The data table includes all series.</p>
+      <div id="series-controls"></div>
+    </fieldset>
     <!-- The script redraws #chart; the tooltip sits beside it so a redraw keeps it. -->
     <div class="chart">
       <div id="chart"></div>

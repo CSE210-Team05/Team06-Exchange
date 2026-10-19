@@ -172,27 +172,32 @@ function layout_legend(names, max_width) {
  * @param {object} chart
  * @param {Array<{ name: string, points: Array<[number, number]> }>} [chart.series] one entry per line or marker group
  * @param {Array<[number, number]>} [chart.points] shorthand for a single series named by `y_label`
+ * @param {boolean[]} [chart.visibility] flags by original series index; omitted entries are visible
  * @param {'line'|'scatter'} [chart.type]
  * @param {string} [chart.x_label]
  * @param {string} [chart.y_label]
  * @returns {Chart}
  */
-export function build_chart({ series, points, type = 'line', x_label = 'x', y_label = 'y' } = {}) {
+export function build_chart({ series, points, type = 'line', x_label = 'x', y_label = 'y', visibility } = {}) {
   const series_list = (series ?? [{ name: y_label, points: points ?? [] }]).map((entry, position) => ({
     name: String(entry.name ?? `Series ${position + 1}`),
     points: entry.points ?? [],
     color: SERIES_COLORS[position % SERIES_COLORS.length],
+    visible: visibility?.[position] !== false,
     // One point cannot form a line, so it is shown as a marker.
     markers: type === 'scatter' || entry.points?.length === 1,
   }));
   const point_count = series_list.reduce((sum, entry) => sum + entry.points.length, 0);
   const has_data = point_count > 0;
+  const visible_series = series_list.filter((entry) => entry.visible);
+  const all_hidden = series_list.length > 0 && !visible_series.length;
+  const visible_count = visible_series.reduce((sum, entry) => sum + entry.points.length, 0);
   const show_markers = series_list.some((entry) => entry.markers && entry.points.length > 0);
 
   const left = MARGIN.left;
   const right = WIDTH - MARGIN.right;
   const plot_width = right - left;
-  const legend = layout_legend(series_list.length > 1 ? series_list.map((entry) => entry.name) : [], plot_width);
+  const legend = layout_legend((series_list.length > 1 || visibility !== undefined) ? series_list.map((entry) => entry.name) : [], plot_width);
   const top = legend.rows ? LEGEND_TOP + legend.rows * LEGEND_ROW + LEGEND_PLOT_GAP : MARGIN.top;
   const bottom = HEIGHT - MARGIN.bottom;
   const plot_height = bottom - top;
@@ -234,7 +239,7 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   /** @type {HitPoint[]} */
   const hit_points = [];
   series_list.forEach((entry, position) => {
-    if (!entry.points.length) return;
+    if (!entry.visible || !entry.points.length) return;
     const pixels = entry.points.map(([x, y]) => [num(map_x(x)), num(map_y(y))]);
     entry.points.forEach(([x, y], index) => {
       hit_points.push({ series: position, name: entry.name, color: entry.color, x, y, px: pixels[index][0], py: pixels[index][1] });
@@ -248,8 +253,8 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
     }
   });
   parts.push(...lines, ...markers);
-  if (!has_data) {
-    parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, 'No data', { size: 13, fill: COLORS.tick_text, baseline: 'middle' }));
+  if (all_hidden || !has_data) {
+    parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, all_hidden ? 'No series selected' : 'No data', { size: 13, fill: COLORS.tick_text, baseline: 'middle' }));
   }
 
   // Axis lines, tick labels and axis titles.
@@ -270,7 +275,8 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
 
   // Legend: a short line or a dot in the series colour, then the series name.
   legend.entries.forEach((entry, position) => {
-    const { color, markers: as_marker } = series_list[position];
+    const { color, markers: as_marker, visible } = series_list[position];
+    parts.push(`<g class="legend-entry"${visible ? '' : ' opacity="0.45" text-decoration="line-through"'}>`);
     const x = left + entry.dx;
     const y = LEGEND_TOP + entry.row * LEGEND_ROW + LEGEND_ROW / 2;
     parts.push(as_marker
@@ -279,16 +285,18 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
     parts.push(text('legend-label', x + LEGEND_KEY + LEGEND_KEY_GAP, y, entry.label, {
       size: LEGEND_FONT, fill: COLORS.tick_text, anchor: 'start', baseline: 'middle',
     }));
+    parts.push('</g>');
   });
 
   // Title and description make the chart readable for screen readers.
   const kind = type === 'scatter' ? 'Scatter plot' : 'Line plot';
   const several = series_list.length > 1;
-  const names = series_list.map((entry) => entry.name).join(', ');
+  const names = visible_series.map((entry) => entry.name).join(', ');
   const subject = several ? names : y_label;
   let description = `${kind} with no data.`;
-  if (has_data) {
-    description = `${kind} of ${several ? `${series_list.length} series (${names})` : y_label} against ${x_label} with ${point_count} points. `
+  if (all_hidden) description = `${kind}. No series selected. 0 visible points.`;
+  else if (has_data) {
+    description = `${kind} of ${several ? `${visible_series.length} series (${names})` : y_label} against ${x_label} with ${visible_count} points. `
       + `${x_label} ranges from ${x_low} to ${x_high}, ${several ? 'the values' : y_label} from ${y_low} to ${y_high}.`;
   }
 

@@ -157,3 +157,58 @@ describe('build_chart', () => {
     assert.deepEqual(build_chart({ points: [] }).hit_points, []);
   });
 });
+
+describe('series visibility', () => {
+  for (const type of ['line', 'scatter']) {
+    it(`removes hidden marks and targets with stable identity and geometry in ${type}`, () => {
+      const series = [
+        { name: 'Extreme', points: [[-100, -100], [100, 100]] },
+        { name: '<Visible & safe>', points: [[0, 0], [1, 1]] },
+        { name: 'Singleton', points: [[200, 200]] },
+      ];
+      const full = build_chart({ series, type });
+      const hidden = build_chart({ series, type, visibility: [false, true, false] });
+      assert.deepEqual(hidden.hit_points, full.hit_points.filter((point) => point.series === 1));
+      assert.ok(hidden.hit_points.every((point) => point.color === SERIES_COLORS[1]));
+      assert.equal(elements(hidden.svg, type === 'line' ? 'series' : 'markers').length, 1);
+      assert.equal(elements(hidden.svg, type === 'line' ? 'markers' : 'series').length, 0);
+      assert.deepEqual(hidden.plot_area, full.plot_area);
+      for (const name of ['axis', 'grid-x', 'grid-y', 'tick-x', 'tick-y', 'legend-key', 'legend-label']) {
+        assert.deepEqual(elements(hidden.svg, name), elements(full.svg, name));
+      }
+      assert.equal(elements(hidden.svg, 'legend-entry').filter((entry) => entry.includes('line-through')).length, 2);
+      assert.match(hidden.svg, /1 series \(&lt;Visible &amp; safe&gt;\).*with 2 points/);
+      assert.ok(!hidden.svg.includes('<Visible'));
+      const empty = build_chart({ series, type, visibility: [false, false, false] });
+      assert.deepEqual(empty.hit_points, []);
+      assert.deepEqual(empty.plot_area, full.plot_area);
+      assert.deepEqual(texts(empty.svg, 'empty'), ['No series selected']);
+      assert.equal(elements(empty.svg, 'series').length + elements(empty.svg, 'markers').length, 0);
+      assert.equal(elements(empty.svg, 'legend-label').length, 3);
+      assert.match(empty.svg, /<desc>[^<]*No series selected. 0 visible points/);
+      assert.ok(!empty.svg.includes('class="hover"'));
+    });
+  }
+
+  it('defaults to visible, supports render_chart and leaves inputs untouched', () => {
+    const series = structuredClone(two_series);
+    const before = structuredClone(series);
+    for (const entry of series) {
+      entry.points.forEach(Object.freeze);
+      Object.freeze(entry.points);
+      Object.freeze(entry);
+    }
+    Object.freeze(series);
+    const visibility = Object.freeze([false, true]);
+    const options = Object.freeze({ series, visibility });
+    assert.equal(render_chart(options), build_chart(options).svg);
+    assert.deepEqual(series, before);
+    assert.deepEqual(visibility, [false, true]);
+    const defaults = build_chart({ series });
+    assert.deepEqual(defaults, build_chart({ series, visibility: [true, true] }));
+    assert.deepEqual(defaults, build_chart({ series, visibility: [] }));
+    assert.equal(build_chart({ points: sample, visibility: [false] }).hit_points.length, 0);
+    assert.deepEqual(texts(render_chart({ series: [] }), 'empty'), ['No data']);
+    assert.deepEqual(texts(render_chart({ points: sample, visibility: [false] }), 'legend-label'), ['y']);
+  });
+});
