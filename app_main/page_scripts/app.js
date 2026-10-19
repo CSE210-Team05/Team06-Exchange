@@ -51,6 +51,30 @@ const tooltip = $('tooltip');
 
 // Dark Mode toggle
 const theme_toggle = $('theme-toggle');
+const settings = document.querySelector('.settings');
+const settings_button = $('settings-button');
+const settings_menu = $('settings-menu');
+
+function set_settings_open(open) {
+  settings_menu.hidden = !open;
+  settings_button.setAttribute('aria-expanded', String(open));
+  settings_button.setAttribute('aria-label', open ? 'Close settings' : 'Open settings');
+}
+
+settings_button.addEventListener('click', () => {
+  set_settings_open(settings_menu.hidden);
+});
+
+document.addEventListener('click', (event) => {
+  if (!settings_menu.hidden && !settings.contains(event.target)) set_settings_open(false);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !settings_menu.hidden) {
+    set_settings_open(false);
+    settings_button.focus();
+  }
+});
 
 // Restore the user's previously selected theme
 const saved_theme = localStorage.getItem('theme');
