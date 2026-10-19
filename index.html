@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="app-loading">
 
 <!--
 PAGE HEAD START (meta settings & stylesheet reference)
@@ -10,6 +10,16 @@ PAGE HEAD START (meta settings & stylesheet reference)
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Plotting Library: Warmup Exercise Team 06</title>
 <meta name="description" content="Paste CSV data and draw a line or scatter plot with a plotting library written from scratch in plain JavaScript.">
+<style>
+  /* Cover startup with one neutral color so the saved theme never flashes. */
+  html.app-loading { background: #242424; }
+  html.app-loading body { visibility: hidden; }
+</style>
+<script>
+  window.addEventListener('load', () => {
+    document.documentElement.classList.remove('app-loading');
+  }, { once: true });
+</script>
 <link rel="stylesheet" href="app_main/stylesheets/styles_main.css">
 </head>
 
