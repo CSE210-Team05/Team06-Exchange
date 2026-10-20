@@ -130,7 +130,9 @@ button:not(:disabled):active {
   padding: 12px;
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color 120ms ease;
 }
+.theme-switch:hover { background: var(--surface-sunk); }
 
 .theme-switch input {
   position: absolute;
@@ -147,6 +149,7 @@ button:not(:disabled):active {
   position: relative;
   transition: background 0.2s;
 }
+.theme-switch:hover .slider { box-shadow: 0 0 0 2px var(--line-strong); }
 
 .slider::before {
   content: "";
