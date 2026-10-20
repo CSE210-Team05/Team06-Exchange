@@ -9,13 +9,14 @@
   --surface: #fcfcfb;
   --surface-sunk: #f4f4f1;
   --line: rgba(11, 11, 11, 0.10);
-  --line-strong: rgba(11, 11, 11, 0.20);
+  --line-strong: rgba(11, 11, 11, 0.42);
   --ink: #0b0b0b;
   --ink-2: #52514e;
   --ink-3: #6b6a65;
-  --accent: #2a78d6;
+  --accent: #2470c7;
   --on-accent: #ffffff;
   --danger: #b42318;
+  --switch-off: #74736f;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-code: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --radius-control: 6px;
@@ -30,13 +31,14 @@
   --surface: #1e1e1e;
   --surface-sunk: #292929;
   --line: rgba(255, 255, 255, 0.12);
-  --line-strong: rgba(255, 255, 255, 0.25);
+  --line-strong: rgba(255, 255, 255, 0.34);
   --ink: #f5f5f5;
   --ink-2: #c5c5c5;
   --ink-3: #a3a3a3;
   --accent: #60a5fa;
   --on-accent: #121212;
   --danger: #ff8077;
+  --switch-off: #8f8f8f;
   --settings-icon-filter: invert(1);
   color-scheme: dark;
 }
@@ -62,7 +64,7 @@ kbd {
   font-size: 0.85em;
 }
 
-h2 { margin: 0; font-size: 13px; font-weight: 600; }
+h2 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -0.005em; }
 
 /* Give every button a consistent, visible interaction cue. */
 button {
@@ -85,7 +87,7 @@ button:not(:disabled):active {
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
-.page-title { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+.page-title { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.015em; }
 
 /* Settings menu and dark mode toggle */
 .topbar {
@@ -144,7 +146,7 @@ button:not(:disabled):active {
 .slider {
   width: 44px;
   height: 24px;
-  background: #aaa;
+  background: var(--switch-off);
   border-radius: 24px;
   position: relative;
   transition: background 0.2s;
