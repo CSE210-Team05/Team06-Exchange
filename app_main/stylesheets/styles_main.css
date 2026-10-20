@@ -238,7 +238,7 @@ button:not(:disabled):active {
 .segmented input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
 .segmented span {
   display: block;
-  padding: 5px 14px;
+  padding: 4px 14px;
   border-radius: 4px;
   color: var(--ink-2);
   font-size: 13px;
@@ -379,8 +379,8 @@ input[type="text"]:focus, textarea:focus { outline: 2px solid var(--accent); out
   }
 }
 /* Native series controls wrap without changing the SVG plot or legend layout. */
-.series-controls { margin: 12px; border: 1px solid var(--line-strong); border-radius: 6px; }
-.series-controls legend { font-weight: 600; }
+.series-controls { min-width: 0; margin: 12px; padding: 8px 12px 12px; border: 1px solid var(--line-strong); border-radius: 6px; }
+.series-controls legend { padding: 0 4px; font-weight: 600; }
 .series-controls p { margin: 0 0 8px; }
 #series-controls { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 #series-controls label { display: inline-flex; align-items: center; gap: 6px; overflow-wrap: anywhere; min-width: 0; }
