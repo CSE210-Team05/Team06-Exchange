@@ -1,5 +1,37 @@
 /** DOM-only chart navigation. Attach once to the persistent host, never to redraws. */
-import { pan_view, zoom_view } from './viewport.js';
+import { MAX_ZOOM, pan_view, zoom_view } from './viewport.js';
+
+const LIMIT_MESSAGES = {
+  in: 'Already at max zoom in',
+  out: 'Already at max zoom out',
+  left: "Can't go further left",
+  right: "Can't go further right",
+  up: "Can't go further up",
+  down: "Can't go further down",
+};
+
+function at_limit(action, { viewport, full_domains }) {
+  const epsilon = Number.EPSILON * 100;
+  const close = (a, b) => Math.abs(a - b) <= epsilon * Math.max(1, Math.abs(a), Math.abs(b));
+  if (action === 'in') return ['x', 'y'].every((axis) => close(
+    viewport[axis][1] - viewport[axis][0],
+    (full_domains[axis][1] - full_domains[axis][0]) / MAX_ZOOM,
+  ));
+  if (action === 'out') return ['x', 'y'].every((axis) => close(
+    viewport[axis][1] - viewport[axis][0],
+    full_domains[axis][1] - full_domains[axis][0],
+  ));
+  if (action === 'left') return close(viewport.x[0], full_domains.x[0]);
+  if (action === 'right') return close(viewport.x[1], full_domains.x[1]);
+  if (action === 'down') return close(viewport.y[0], full_domains.y[0]);
+  if (action === 'up') return close(viewport.y[1], full_domains.y[1]);
+  return false;
+}
+
+function zoom_message(view, full) {
+  const level = (full.x[1] - full.x[0]) / (view.x[1] - view.x[0]);
+  return `Zoom level: ${Math.round(level * 100) / 100}×`;
+}
 
 export function svg_pointer(svg, event) {
   const matrix = svg?.getScreenCTM();
@@ -10,7 +42,7 @@ export function svg_pointer(svg, event) {
   return point.matrixTransform(matrix.inverse());
 }
 
-export function attach_navigation(host, controls, get_chart, set_view, clear_hover) {
+export function attach_navigation(host, controls, get_chart, set_view, clear_hover, show_hint = () => {}) {
   let drag = null;
   const finish = (event) => {
     if (!drag || (event && event.pointerId !== drag.id)) return;
@@ -27,9 +59,13 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
     const a = chart.plot_area;
     event.preventDefault();
     clear_hover();
-    set_view(zoom_view(chart.viewport, chart.full_domains, Math.exp(Math.sign(event.deltaY) * 0.2), {
+    const action = event.deltaY < 0 ? 'in' : 'out';
+    if (at_limit(action, chart)) { show_hint(LIMIT_MESSAGES[action]); return; }
+    const view = zoom_view(chart.viewport, chart.full_domains, Math.exp(Math.sign(event.deltaY) * 0.2), {
       x: (p.x - a.left) / (a.right - a.left), y: (a.bottom - p.y) / (a.bottom - a.top),
-    }));
+    });
+    show_hint(zoom_message(view, chart.full_domains));
+    set_view(view);
   }, { passive: false });
   host.addEventListener('pointerdown', (event) => {
     const chart = get_chart();
@@ -49,6 +85,7 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
     const { chart, point } = drag;
     const a = chart.plot_area;
     event.preventDefault();
+    show_hint('');
     set_view(pan_view(chart.viewport, chart.full_domains,
       (point.x - p.x) / (a.right - a.left), (p.y - point.y) / (a.bottom - a.top)));
   });
@@ -59,10 +96,14 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
     if (!action || !chart) return;
     finish();
     clear_hover();
-    if (action === 'reset') { set_view(null); return; }
+    if (action === 'reset') { show_hint('View reset'); set_view(null); return; }
+    if (at_limit(action, chart)) { show_hint(LIMIT_MESSAGES[action]); return; }
     if (action === 'in' || action === 'out') {
-      set_view(zoom_view(chart.viewport, chart.full_domains, action === 'in' ? 0.8 : 1.25));
+      const view = zoom_view(chart.viewport, chart.full_domains, action === 'in' ? 0.8 : 1.25);
+      show_hint(zoom_message(view, chart.full_domains));
+      set_view(view);
     } else {
+      show_hint('');
       const [dx, dy] = { left: [-0.2, 0], right: [0.2, 0], up: [0, 0.2], down: [0, -0.2] }[action];
       set_view(pan_view(chart.viewport, chart.full_domains, dx, dy));
     }

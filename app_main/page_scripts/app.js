@@ -8,6 +8,7 @@ import { build_chart, SERIES_COLORS } from '../features/plot_handling/chart_rend
 import { attach_navigation } from '../features/plot_handling/chart_interaction.js';
 import { attach_hover } from '../features/plot_handling/hover_tooltip.js';
 import { download_blob, download_csv, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
+import { clamp_domain } from '../features/plot_handling/viewport.js';
 
 /**
  * Example data shown on first load: two balls thrown straight up, at 20 m/s
@@ -124,6 +125,13 @@ function draw_chart() {
   show_status(describe_data());
 }
 
+function contrast_text(background) {
+  const channels = background.slice(1).match(/../g).map((value) => parseInt(value, 16) / 255);
+  const luminance = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, value, channel) => sum + value * [0.2126, 0.7152, 0.0722][channel], 0);
+  return luminance > 0.179 ? '#0b0b0b' : '#ffffff';
+}
+
 /** Native controls keep focus while the chart redraws; CSV names are text only. */
 function draw_visibility_controls() {
   const controls = data.names.map((name, index) => {
@@ -134,6 +142,8 @@ function draw_visibility_controls() {
     input.addEventListener('change', () => {
       visibility[index] = input.checked;
       draw_chart();
+      const color = SERIES_COLORS[index % SERIES_COLORS.length];
+      show_view_hint(`${input.checked ? 'Enabled' : 'Disabled'} ${name} visibility`, color, contrast_text(color));
     });
     const key = document.createElement('span');
     key.className = 'series-key';
@@ -148,6 +158,14 @@ function draw_visibility_controls() {
 }
 
 function draw_table() {
+  if (!data.rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'table-empty';
+    empty.textContent = 'No data to display.';
+    $('table').replaceChildren(empty);
+    $('table-note').textContent = '0 rows';
+    return;
+  }
   const table = document.createElement('table');
   const head_row = table.createTHead().insertRow();
   for (const label of column_headers()) {
@@ -159,12 +177,95 @@ function draw_table() {
   const body = table.createTBody();
   for (const values of data.rows.slice(0, TABLE_LIMIT)) {
     const row = body.insertRow();
-    for (const value of values) row.insertCell().textContent = value === null ? '' : String(value);
+    for (const [column, value] of values.entries()) {
+      const cell = row.insertCell();
+      if (value === null) continue;
+      const button = document.createElement('button');
+      button.className = 'table-value';
+      button.type = 'button';
+      button.title = 'Click to see in the graph';
+      button.textContent = String(value);
+      button.addEventListener('click', () => center_table_value(values, column));
+      cell.appendChild(button);
+    }
   }
   $('table').replaceChildren(table);
   $('table-note').textContent = data.rows.length > TABLE_LIMIT
     ? `First ${count_text(TABLE_LIMIT)} of ${count_text(data.rows.length)} rows`
     : `${count_text(data.rows.length)} rows`;
+}
+
+function center_table_value(values, column) {
+  if (!chart) return;
+  if (log_toggle.checked && (values[0] <= 0 || (column > 0 && values[column] <= 0))) {
+    show_view_hint('This value cannot be shown in logarithmic view');
+    $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  const centered = (axis, value) => {
+    const full = chart.full_domains[axis];
+    const current_width = chart.viewport[axis][1] - chart.viewport[axis][0];
+    const width = Math.min(current_width, (full[1] - full[0]) / 2);
+    const coordinate = log_toggle.checked ? Math.log10(value) : value;
+    return clamp_domain([coordinate - width / 2, coordinate + width / 2], full);
+  };
+  viewport = { x: centered('x', values[0]), y: [...chart.viewport.y] };
+  if (column > 0) {
+    viewport.y = centered('y', values[column]);
+    if (!visibility[column - 1]) {
+      visibility[column - 1] = true;
+      draw_visibility_controls();
+    }
+  }
+  draw_chart();
+  const selected_points = highlight_table_value(values, column);
+  const headers = column_headers();
+  if (column === 0) {
+    show_view_hint(`${headers[0]}: ${values[0]}`, undefined, undefined, true);
+  } else {
+    const color = SERIES_COLORS[(column - 1) % SERIES_COLORS.length];
+    show_view_hint(`${headers[column]}: ${values[column]} · ${headers[0]}: ${values[0]}`,
+      color, contrast_text(color), true, selected_points[0]);
+  }
+  $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function highlight_table_value(values, column) {
+  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  group.classList.add('table-selection-marker');
+  if (column === 0) {
+    const x = log_toggle.checked ? Math.log10(values[0]) : values[0];
+    const [low, high] = chart.viewport.x;
+    if (!Number.isFinite(x) || x < low || x > high) return [];
+    const { left, right, top, bottom } = chart.plot_area;
+    const px = left + (x - low) / (high - low) * (right - left);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', px);
+    line.setAttribute('x2', px);
+    line.setAttribute('y1', top);
+    line.setAttribute('y2', bottom);
+    line.setAttribute('stroke', '#52514e');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5 4');
+    group.appendChild(line);
+    $('chart').querySelector('svg')?.appendChild(group);
+    return [];
+  }
+  const points = chart.hit_points.filter((point) => point.x === values[0]
+    && point.series === column - 1 && point.y === values[column]);
+  if (!points.length) return [];
+  for (const point of points) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', point.px);
+    circle.setAttribute('cy', point.py);
+    circle.setAttribute('r', '7');
+    circle.setAttribute('fill', point.color);
+    circle.setAttribute('stroke', '#fcfcfb');
+    circle.setAttribute('stroke-width', '3');
+    group.appendChild(circle);
+  }
+  $('chart').querySelector('svg')?.appendChild(group);
+  return points;
 }
 
 function show_status(message, is_error = false) {
@@ -276,10 +377,12 @@ for (const radio of document.querySelectorAll('input[name="plot-type"]')) {
 
 // Both downloads use the chart's own markup, not the page, so a hover highlight never ends up in the file.
 $('download-svg').addEventListener('click', () => {
+  document.querySelector('.download-menu').open = false;
   if (chart) download_blob(`${DOWNLOAD_NAME}.svg`, svg_blob(chart.svg));
 });
 
 $('download-png').addEventListener('click', async () => {
+  document.querySelector('.download-menu').open = false;
   if (!chart) return;
   try {
     download_blob(`${DOWNLOAD_NAME}.png`, await svg_to_png(chart.svg));
@@ -292,10 +395,30 @@ const clear_hover = () => {
   tooltip.hidden = true;
   $('chart').querySelector('.hover')?.remove();
 };
+const show_view_hint = (message, background = '#1e1e1e', color = '#f5f5f5', persistent = false, point = null) => {
+  const hint = $('view-status');
+  hint.classList.remove('view-status-visible', 'view-status-persistent', 'view-status-above', 'view-status-below');
+  hint.style.removeProperty('left');
+  hint.style.removeProperty('top');
+  hint.textContent = message;
+  hint.style.setProperty('--view-hint-background', background);
+  hint.style.setProperty('--view-hint-color', color);
+  if (!message) return;
+  if (point) {
+    const host = $('chart');
+    hint.style.left = `${host.offsetLeft + point.px}px`;
+    hint.style.top = `${host.offsetTop + point.py}px`;
+    hint.classList.add(point.py > (chart.plot_area.top + chart.plot_area.bottom) / 2
+      ? 'view-status-above' : 'view-status-below');
+  }
+  if (persistent) { hint.classList.add('view-status-persistent'); return; }
+  void hint.offsetWidth;
+  hint.classList.add('view-status-visible');
+};
 const navigation = attach_navigation($('chart'), $('view-controls'), () => chart, (view) => {
   viewport = view;
   draw_chart();
-}, clear_hover);
+}, clear_hover, show_view_hint);
 attach_hover($('chart'), tooltip, () => !navigation.is_dragging() && chart && { ...chart, type, x_label: x_label_input.value });
 
 csv_input.value = SAMPLE_CSV;

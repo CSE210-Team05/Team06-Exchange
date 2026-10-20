@@ -17,7 +17,7 @@ import { compute_interpolation_factor } from '../../../libs/custom/math_operatio
 export const WIDTH = 720;
 export const HEIGHT = 440;
 const MARGIN = { top: 24, right: 32, bottom: 62, left: 88 };
-const FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+const FONT_FAMILY = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 /** Chart colours. */
 export const COLORS = {
@@ -29,11 +29,11 @@ export const COLORS = {
 };
 
 /**
- * One colour per series, used in this order (the palette of the first
- * ZeroPlot version). The first blue keeps 4.6:1 contrast against the
- * background. A ninth series starts again with the first colour.
+ * One colour per series, used in this order. Every colour keeps at least
+ * 3:1 contrast against the plot background. A ninth series starts again
+ * with the first colour.
  */
-export const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+export const SERIES_COLORS = ['#2470c7', '#eb6834', '#14845d', '#9a6600', '#b94f79', '#008300', '#6250d6', '#e34948'];
 
 /** Approximate number of tick intervals per axis. */
 const X_TICKS = 8;
