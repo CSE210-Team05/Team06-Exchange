@@ -7,7 +7,7 @@ import { MAX_SERIES, parse_csv, to_series } from '../features/plot_handling/csv_
 import { build_chart, SERIES_COLORS } from '../features/plot_handling/chart_rendering.js';
 import { attach_navigation } from '../features/plot_handling/chart_interaction.js';
 import { attach_hover } from '../features/plot_handling/hover_tooltip.js';
-import { download_blob, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
+import { download_blob, download_csv, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
 
 /**
  * Example data shown on first load: two balls thrown straight up, at 20 m/s
@@ -51,6 +51,31 @@ const tooltip = $('tooltip');
 
 // Dark Mode toggle
 const theme_toggle = $('theme-toggle');
+const log_toggle = $('log-toggle');
+const settings = document.querySelector('.settings');
+const settings_button = $('settings-button');
+const settings_menu = $('settings-menu');
+
+function set_settings_open(open) {
+  settings_menu.hidden = !open;
+  settings_button.setAttribute('aria-expanded', String(open));
+  settings_button.setAttribute('aria-label', open ? 'Close settings' : 'Open settings');
+}
+
+settings_button.addEventListener('click', () => {
+  set_settings_open(settings_menu.hidden);
+});
+
+document.addEventListener('click', (event) => {
+  if (!settings_menu.hidden && !settings.contains(event.target)) set_settings_open(false);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !settings_menu.hidden) {
+    set_settings_open(false);
+    settings_button.focus();
+  }
+});
 
 // Restore the user's previously selected theme
 const saved_theme = localStorage.getItem('theme');
@@ -66,6 +91,8 @@ theme_toggle.addEventListener('change', () => {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('theme', theme);
 });
+
+log_toggle.checked = localStorage.getItem('logarithmic-view') === 'true';
 
 /** @type {import('../features/plot_handling/csv_input.js').ParsedData | null} */
 let data = null;
@@ -90,10 +117,11 @@ function column_headers() {
 
 function draw_chart() {
   const series = to_series(column_headers().slice(1), data.rows);
-  chart = build_chart({ series, type, visibility, viewport, full_domains, clip_id, x_label: x_label_input.value, y_label: y_label_input.value });
+  chart = build_chart({ series, type, scale: log_toggle.checked ? 'log' : 'linear', visibility, viewport, full_domains, clip_id, x_label: x_label_input.value, y_label: y_label_input.value });
   full_domains ??= chart.full_domains;
   $('chart').innerHTML = chart.svg;
   tooltip.hidden = true; // it described the previous drawing
+  show_status(describe_data());
 }
 
 /** Native controls keep focus while the chart redraws; CSV names are text only. */
@@ -156,6 +184,10 @@ function describe_data() {
   if (data.ignored_columns.length) {
     notes.push(`Not plotted (no numbers, or more than ${MAX_SERIES} series): ${data.ignored_columns.join(', ')}.`);
   }
+  if (log_toggle.checked && chart?.excluded_points) {
+    const count = chart.excluded_points;
+    notes.push(`Logarithmic view: ${count_text(count)} non-positive ${count === 1 ? 'point was' : 'points were'} not plotted.`);
+  }
   return notes.join(' ');
 }
 
@@ -176,10 +208,23 @@ function apply_data() {
   draw_visibility_controls();
   x_label_input.value = data.x_label;
   y_label_input.value = data.y_label;
-  show_status(describe_data());
   draw_chart();
   draw_table();
 }
+
+log_toggle.addEventListener('change', () => {
+  localStorage.setItem('logarithmic-view', String(log_toggle.checked));
+  if (!data) return;
+  navigation.cancel();
+  viewport = null;
+  full_domains = null;
+  draw_chart();
+});
+
+$('download-csv').addEventListener('click', () => {
+  download_csv(csv_input.value);
+  set_settings_open(false);
+});
 
 /**
  * Read a CSV file into the textarea and apply it. The hidden file input is

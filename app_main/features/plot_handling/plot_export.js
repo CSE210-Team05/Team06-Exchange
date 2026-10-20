@@ -2,13 +2,14 @@
  * Saving the plot as a file: the chart's SVG as it is, or drawn onto a canvas
  * and saved as a PNG image.
  *
- * Everything here needs a browser (Blob URLs, Image, canvas), so none of it
- * runs in the Node tests.
+ * The download action, image, and canvas need a browser. Blob construction is
+ * kept separate so its exact contents can be tested in Node.
  */
 import { HEIGHT, WIDTH } from './chart_rendering.js';
 
 /** PNG pixels per chart pixel, so the image stays sharp on dense screens and in documents. */
 const PNG_SCALE = 2;
+export const CSV_FILE_NAME = 'zeroplot-data.csv';
 
 /**
  * Save a blob as a file: a temporary link to it, clicked once.
@@ -24,6 +25,15 @@ export function download_blob(file_name, blob) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Preserve the data field exactly as entered in a CSV download. */
+export function csv_blob(csv) {
+  return new Blob([csv], { type: 'text/csv;charset=utf-8' });
+}
+
+export function download_csv(csv) {
+  download_blob(CSV_FILE_NAME, csv_blob(csv));
 }
 
 /**

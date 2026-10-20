@@ -20,6 +20,7 @@
   --font-code: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --radius-control: 6px;
   --radius-panel: 10px;
+  --settings-icon-filter: none;
   color-scheme: light;
 }
 
@@ -36,6 +37,7 @@
   --accent: #60a5fa;
   --on-accent: #121212;
   --danger: #ff8077;
+  --settings-icon-filter: invert(1);
   color-scheme: dark;
 }
 
@@ -72,16 +74,47 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 }
 .page-title { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
 
-/* Dark Mode toggle */
+/* Settings menu and dark mode toggle */
 .topbar {
   justify-content: space-between;
   gap: 16px;
 }
 
+.settings { position: relative; flex: 0 0 auto; }
+.settings-button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.settings-button:hover, .settings-button[aria-expanded="true"] { background: var(--surface-sunk); }
+.settings-button img { width: 100%; height: 100%; object-fit: contain; filter: var(--settings-icon-filter); }
+
+.settings-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 190px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(11, 11, 11, 0.16);
+}
+.settings-menu[hidden] { display: none; }
+
 .theme-switch {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  padding: 12px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -126,6 +159,20 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+
+.settings-option { border-top: 1px solid var(--line); }
+.settings-download {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.settings-download:hover { background: var(--surface-sunk); }
 
 /* ------------------------------------------------------------------ layout */
 .layout {

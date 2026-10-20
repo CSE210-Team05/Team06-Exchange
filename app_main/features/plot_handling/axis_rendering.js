@@ -71,6 +71,46 @@ export function nice_axis(low, high, count) {
 }
 
 /**
+ * Axis for values already transformed with log10. Whole powers of ten are
+ * used across broad ranges; a regular nice axis keeps labels useful while
+ * zoomed into less than one decade.
+ */
+export function logarithmic_axis(low, high, count) {
+  let start = Math.min(low, high);
+  let stop = Math.max(low, high);
+  if (!Number.isFinite(start) || !Number.isFinite(stop)) [start, stop] = [0, 1];
+  if (start === stop) [start, stop] = [start - 0.5, stop + 0.5];
+
+  let axis;
+  if (stop - start < 1) {
+    axis = nice_axis(start, stop, count);
+  } else {
+    const first = Math.floor(start);
+    const last = Math.ceil(stop);
+    const step = Math.max(1, Math.ceil((last - first) / Math.max(1, count)));
+    const ticks = [];
+    for (let exponent = first; exponent <= last; exponent += step) ticks.push(exponent);
+    axis = { domain: [first, last], ticks, step };
+  }
+
+  return { ...axis, format: (value) => format_log_value(10 ** value) };
+}
+
+/** Log ticks use independent compact labels so distant magnitudes never round to the same text. */
+function format_log_value(value) {
+  const compact = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+  if (value >= 1e4) {
+    const [unit, suffix] = compact.find(([size]) => value >= size);
+    return `${Number((value / unit).toPrecision(3))}${suffix}`;
+  }
+  if (value < 1e-3) {
+    const [mantissa, exponent] = value.toExponential(2).split('e');
+    return `${Number(mantissa)}e${exponent.replace('-', MINUS).replace('+', '')}`;
+  }
+  return String(Number(value.toPrecision(3)));
+}
+
+/**
  * Formatter for the tick labels of one axis. All labels share one precision
  * (0.0, 0.5, 1.0), long numbers use compact units (5K, 2.5M), and negative
  * numbers get the typographic minus sign, which is as wide as a plus sign.

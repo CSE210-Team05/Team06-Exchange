@@ -32,12 +32,25 @@ PAGE BODY START
   <!-- Page Title -->
   <h1 class="page-title">Plotting Library: Warmup Exercise Team 06</h1>
 
-  <!-- Dark Mode Toggle -->
-  <label class="theme-switch">
-    <span>Dark Mode</span>
-    <input type="checkbox" id="theme-toggle">
-    <span class="slider"></span>
-  </label>
+  <div class="settings">
+    <button class="settings-button" type="button" id="settings-button"
+      aria-label="Open settings" aria-expanded="false" aria-controls="settings-menu">
+      <img src="assets/settings.png" alt="" aria-hidden="true">
+    </button>
+    <div class="settings-menu" id="settings-menu" hidden>
+      <label class="theme-switch">
+        <span>Dark mode</span>
+        <input type="checkbox" id="theme-toggle">
+        <span class="slider" aria-hidden="true"></span>
+      </label>
+      <label class="theme-switch settings-option">
+        <span>Logarithmic view</span>
+        <input type="checkbox" id="log-toggle">
+        <span class="slider" aria-hidden="true"></span>
+      </label>
+      <button class="settings-download" type="button" id="download-csv">Download CSV file</button>
+    </div>
+  </div>
 </header>
 
 <main class="layout">
