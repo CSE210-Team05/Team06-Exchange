@@ -1,135 +1,139 @@
 <!doctype html>
 <html lang="en" class="app-loading">
-
-<!--
-PAGE HEAD START (meta settings & stylesheet reference)
-//-->
-
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Plotting Library: Warmup Exercise Team 06</title>
-<meta name="description" content="Paste CSV data and draw a line or scatter plot with a plotting library written from scratch in plain JavaScript.">
-<style>
-  /* Cover startup with one neutral color so the saved theme never flashes. */
-  html.app-loading { background: #242424; }
-  html.app-loading body { visibility: hidden; }
-</style>
-<script>
-  window.addEventListener('load', () => {
-    document.documentElement.classList.remove('app-loading');
-  }, { once: true });
-</script>
-<link rel="stylesheet" href="app_main/stylesheets/styles_main.css">
+  <meta charset="utf-8">
+  <meta name="description" content="Paste CSV data and create interactive line or scatter plots with ZeroPlot.">
+  <title>ZeroPlot | Data Visualization</title>
+  <style>
+    /* Prevent the saved theme from flashing during startup. */
+    html.app-loading { background: #242424; }
+    html.app-loading body { visibility: hidden; }
+  </style>
+  <script>
+    window.addEventListener('load', () => {
+      document.documentElement.classList.remove('app-loading');
+    }, { once: true });
+  </script>
+  <link rel="stylesheet" href="app_main/stylesheets/styles_main.css">
 </head>
 
-<!--
-PAGE BODY START
-//-->
-
 <body>
-<header class="topbar">
-  <!-- Page Title -->
-  <h1 class="page-title">Plotting Library: Warmup Exercise Team 06</h1>
-
-  <div class="settings">
-    <button class="settings-button" type="button" id="settings-button"
-      aria-label="Open settings" aria-expanded="false" aria-controls="settings-menu">
-      <img src="assets/settings.png" alt="" aria-hidden="true">
-    </button>
-    <div class="settings-menu" id="settings-menu" hidden>
-      <label class="theme-switch">
-        <span>Dark mode</span>
-        <input type="checkbox" id="theme-toggle">
-        <span class="slider" aria-hidden="true"></span>
-      </label>
-      <label class="theme-switch settings-option">
-        <span>Logarithmic view</span>
-        <input type="checkbox" id="log-toggle">
-        <span class="slider" aria-hidden="true"></span>
-      </label>
-      <button class="settings-download" type="button" id="download-csv">Download CSV file</button>
-    </div>
-  </div>
-</header>
-
-<main class="layout">
-  <section class="panel plot-panel" aria-label="Plot">
-    <div class="toolbar">
-      <div class="segmented" role="radiogroup" aria-label="Plot type">
-        <label><input type="radio" name="plot-type" value="line" checked><span>Line</span></label>
-        <label><input type="radio" name="plot-type" value="scatter"><span>Scatter</span></label>
-      </div>
-      <div class="actions">
-        <button class="button" type="button" id="download-svg">Download SVG</button>
-        <button class="button" type="button" id="download-png">Download PNG</button>
+  <header class="topbar">
+    <h1 class="page-title">Plotting Library: Warmup 2 (Team 05)</h1>
+    <div class="settings">
+      <button class="settings-button" type="button" id="settings-button"
+              aria-label="Open settings" aria-expanded="false" aria-controls="settings-menu">
+        <img src="assets/settings.png" alt="">
+      </button>
+      <div class="settings-menu" id="settings-menu" hidden>
+        <label class="theme-switch">
+          <span>Dark mode</span>
+          <input type="checkbox" id="theme-toggle" role="switch">
+          <span class="slider" aria-hidden="true"></span>
+        </label>
+        <label class="theme-switch settings-option">
+          <span>Logarithmic view</span>
+          <input type="checkbox" id="log-toggle">
+          <span class="slider" aria-hidden="true"></span>
+        </label>
+        <button class="settings-download" type="button" id="download-csv">Download CSV file</button>
       </div>
     </div>
-    <div class="view-controls" id="view-controls" role="group" aria-label="Chart view" aria-describedby="view-note">
-      <button class="button" type="button" data-view="in">Zoom in</button>
-      <button class="button" type="button" data-view="out">Zoom out</button>
-      <button class="button" type="button" data-view="left">Pan left</button>
-      <button class="button" type="button" data-view="right">Pan right</button>
-      <button class="button" type="button" data-view="up">Pan up</button>
-      <button class="button" type="button" data-view="down">Pan down</button>
-      <button class="button" type="button" data-view="reset">Reset view</button>
-      <p class="hint" id="view-note">Ctrl + wheel to zoom at the pointer; drag with the primary mouse button to pan. Maximum zoom: 100×. Touch pinch is not supported.</p>
-    </div>
-    <fieldset class="series-controls" aria-describedby="series-note">
-      <legend>Series visibility</legend>
-      <p class="hint" id="series-note">Controls affect the chart only. The data table includes all series.</p>
-      <div id="series-controls"></div>
-    </fieldset>
-    <!-- The script redraws #chart; the tooltip sits beside it so a redraw keeps it. -->
-    <div class="chart">
-      <div id="chart"></div>
-      <div class="tooltip" id="tooltip" aria-hidden="true" hidden></div>
-    </div>
-  </section>
+  </header>
 
-  <aside class="panel rail" aria-label="Plot settings">
-    <section class="rail-section">
-      <h2>Data</h2>
-      <label class="field" for="csv">
-        <span>CSV data: first column x, one further column per series</span>
-        <textarea id="csv" rows="14" spellcheck="false" autocomplete="off"></textarea>
-      </label>
-      <div class="actions">
-        <button class="button button-primary" type="button" id="apply">Apply data</button>
-        <span class="hint">or <kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
-        <button class="button" type="button" id="load-file">Load CSV file</button>
+  <main class="layout">
+    <section class="panel plot-panel" aria-label="Interactive plot">
+      <div class="toolbar">
+        <div class="segmented" role="radiogroup" aria-label="Plot type">
+          <label>
+            <input type="radio" name="plot-type" value="line" checked>
+            <span>Line</span>
+          </label>
+          <label>
+            <input type="radio" name="plot-type" value="scatter">
+            <span>Scatter</span>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="button" type="button" id="download-svg">Download SVG</button>
+          <button class="button" type="button" id="download-png">Download PNG</button>
+        </div>
       </div>
-      <!-- Clicking Load CSV file clicks this hidden input to open the file picker. -->
-      <input type="file" id="file-input" accept=".csv,.tsv,.txt" hidden>
-      <p class="status" id="status" role="status"></p>
+
+      <div class="view-controls" id="view-controls"
+           role="group" aria-label="Chart view" aria-describedby="view-note">
+        <button class="button" type="button" data-view="in">Zoom in</button>
+        <button class="button" type="button" data-view="out">Zoom out</button>
+        <button class="button" type="button" data-view="left">Pan left</button>
+        <button class="button" type="button" data-view="right">Pan right</button>
+        <button class="button" type="button" data-view="up">Pan up</button>
+        <button class="button" type="button" data-view="down">Pan down</button>
+        <button class="button" type="button" data-view="reset">Reset view</button>
+        <p class="hint" id="view-note">
+          Ctrl + wheel to zoom at the pointer; drag with the primary mouse button to pan.
+          Maximum zoom: 100×. Touch pinch is not supported.
+        </p>
+      </div>
+
+      <fieldset class="series-controls" aria-describedby="series-note">
+        <legend>Series visibility</legend>
+        <p class="hint" id="series-note">
+          Controls affect the chart only. The data table includes all series.
+        </p>
+        <div id="series-controls"></div>
+      </fieldset>
+
+      <div class="chart">
+        <div id="chart" role="region" aria-label="Data visualization chart"></div>
+        <div class="tooltip" id="tooltip" aria-hidden="true" hidden></div>
+      </div>
     </section>
 
-    <section class="rail-section">
-      <h2>Axis titles</h2>
-      <label class="field" for="x-label">
-        <span>X axis</span>
-        <input type="text" id="x-label" autocomplete="off">
-      </label>
-      <label class="field" for="y-label">
-        <span>Y axis</span>
-        <input type="text" id="y-label" autocomplete="off">
-      </label>
+    <aside class="panel rail" aria-label="Plot settings">
+      <section class="rail-section" aria-labelledby="data-heading">
+        <h2 id="data-heading">Data</h2>
+
+        <label class="field" for="csv">
+          <span>CSV data: first column x, one further column per series</span>
+          <textarea id="csv" rows="14" spellcheck="false" autocomplete="off"></textarea>
+        </label>
+
+        <div class="actions">
+          <button class="button button-primary" type="button" id="apply">Apply data</button>
+          <span class="hint">or <kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+          <button class="button" type="button" id="load-file">Load CSV file</button>
+        </div>
+
+        <input type="file" id="file-input" accept=".csv,.tsv,.txt" hidden>
+        <p class="status" id="status" role="status"></p>
+      </section>
+
+      <section class="rail-section" aria-labelledby="axis-heading">
+        <h2 id="axis-heading">Axis titles</h2>
+
+        <label class="field" for="x-label">
+          <span>X axis</span>
+          <input type="text" id="x-label" autocomplete="off">
+        </label>
+
+        <label class="field" for="y-label">
+          <span>Y axis</span>
+          <input type="text" id="y-label" autocomplete="off">
+        </label>
+      </section>
+    </aside>
+
+    <section class="panel table-panel" aria-labelledby="table-title">
+      <div class="panel-head">
+        <h2 id="table-title">Data table</h2>
+        <span class="hint" id="table-note"></span>
+      </div>
+
+      <div class="table-wrap" id="table" tabindex="0" aria-labelledby="table-title"></div>
     </section>
-  </aside>
+  </main>
 
-  <section class="panel table-panel" aria-labelledby="table-title">
-    <div class="panel-head">
-      <h2 id="table-title">Data table</h2>
-      <span class="hint" id="table-note"></span>
-    </div>
-    <div class="table-wrap" id="table" tabindex="0" aria-labelledby="table-title"></div>
-  </section>
-</main>
-
-<!--
-PAGE SCRIPT SECTION
-//-->
-
-<script type="module" src="app_main/page_scripts/app.js"></script>
+  <script type="module" src="app_main/page_scripts/app.js"></script>
 </body>
 </html>

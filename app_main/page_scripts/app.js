@@ -207,7 +207,8 @@ function apply_data() {
   visibility = data.names.map(() => true);
   draw_visibility_controls();
   x_label_input.value = data.x_label;
-  y_label_input.value = data.y_label;
+  // Multi-series data has no single Y header, so keep the user's shared title.
+  y_label_input.value = data.y_label || y_label_input.value;
   draw_chart();
   draw_table();
 }
