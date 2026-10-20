@@ -38,8 +38,8 @@ const SAMPLE_Y_LABEL = 'Height (m)';
 const TABLE_LIMIT = 1000;
 /** File name of a downloaded plot, without the extension. */
 const DOWNLOAD_NAME = 'zeroplot-plot';
-/** The largest CSV file read into the textarea, roughly 1 MB of text. */
-const MAX_FILE_SIZE = 1024 * 1024;
+/** The largest CSV file read into the textarea. Dense series are condensed when drawn, so this only bounds parsing time. */
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 const $ = (id) => document.getElementById(id);
 const csv_input = $('csv');
@@ -191,7 +191,7 @@ async function load_file() {
   file_input.value = ''; // so picking the same file again fires change again
   if (!picked) return;
   if (picked.size > MAX_FILE_SIZE) {
-    show_status(`"${picked.name}" is larger than 1 MB. Paste smaller CSV data instead.`, true);
+    show_status(`"${picked.name}" is larger than ${MAX_FILE_SIZE / (1024 * 1024)} MB. Use a smaller CSV file.`, true);
     return;
   }
   try {
