@@ -158,6 +158,59 @@ describe('build_chart', () => {
   });
 });
 
+describe('logarithmic view', () => {
+  it('spaces decades evenly while retaining original hover values', () => {
+    const chart = build_chart({ points: [[1, 1], [10, 10], [100, 100]], type: 'scatter', scale: 'log' });
+    const [first, second, third] = chart.hit_points;
+    assert.ok(Math.abs((second.px - first.px) - (third.px - second.px)) < 0.02);
+    assert.deepEqual(chart.hit_points.map(({ x, y }) => [x, y]), [[1, 1], [10, 10], [100, 100]]);
+    assert.deepEqual(texts(chart.svg, 'tick-x'), ['1', '10', '100']);
+    assert.match(chart.svg, /Logarithmic scale/);
+  });
+
+  it('excludes non-positive points and breaks lines without changing the input', () => {
+    const points = [[1, 1], [10, 0], [100, 100]];
+    const before = structuredClone(points);
+    const chart = build_chart({ points, scale: 'log' });
+    assert.equal(chart.excluded_points, 1);
+    assert.deepEqual(chart.hit_points.map(({ x, y }) => [x, y]), [[1, 1], [100, 100]]);
+    assert.equal(elements(chart.svg, 'series').length, 0);
+    assert.equal((chart.svg.match(/<circle /g) || []).length, 2);
+    assert.match(chart.svg, /1 non-positive point was not plotted/);
+    assert.deepEqual(points, before);
+  });
+
+  it('maps valid data safely when zero and negative values are present', () => {
+    const points = [[-10, 5], [0, 10], [1, -2], [10, 10], [100, 100]];
+    const chart = build_chart({ points, type: 'scatter', scale: 'log' });
+
+    assert.equal(chart.excluded_points, 3);
+    assert.deepEqual(chart.hit_points.map(({ x, y }) => [x, y]), [[10, 10], [100, 100]]);
+    assert.ok(chart.hit_points.every(({ px, py }) => Number.isFinite(px) && Number.isFinite(py)));
+    assert.ok(!chart.svg.includes('NaN'));
+    assert.ok(!chart.svg.includes('undefined'));
+  });
+
+  it('shows an explanatory empty state when no positive points remain', () => {
+    const chart = build_chart({ points: [[0, 1], [2, -1]], scale: 'log' });
+    assert.deepEqual(texts(chart.svg, 'empty'), ['No positive data']);
+    assert.equal(chart.excluded_points, 2);
+  });
+
+  it('uses a marker legend when exclusions leave no line segment', () => {
+    const chart = build_chart({
+      series: [
+        { name: 'Broken', points: [[1, 1], [10, 0], [100, 100]] },
+        { name: 'Connected', points: [[1, 1], [10, 10]] },
+      ],
+      scale: 'log',
+    });
+    const keys = elements(chart.svg, 'legend-key');
+    assert.match(keys[0], /^<circle/);
+    assert.match(keys[1], /^<line/);
+  });
+});
+
 describe('series visibility', () => {
   for (const type of ['line', 'scatter']) {
     it(`removes hidden marks and targets with stable identity and geometry in ${type}`, () => {

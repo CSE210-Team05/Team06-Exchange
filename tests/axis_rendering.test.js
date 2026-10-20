@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { MINUS, nice_axis, tick_formatter, tick_step } from '../app_main/features/plot_handling/axis_rendering.js';
+import { MINUS, logarithmic_axis, nice_axis, tick_formatter, tick_step } from '../app_main/features/plot_handling/axis_rendering.js';
 import { compute_decimals, compute_interpolation_factor } from '../libs/custom/math_operations.js';
 
 describe('tick_step (1-2-5 rule)', () => {
@@ -41,6 +41,29 @@ describe('nice_axis', () => {
 
   it('never returns -0', () => {
     assert.ok(nice_axis(-2, 2, 4).ticks.every((tick) => !Object.is(tick, -0)));
+  });
+});
+
+describe('logarithmic_axis', () => {
+  it('uses evenly spaced powers of ten with labels in the original units', () => {
+    const axis = logarithmic_axis(0, 4, 8);
+    assert.deepEqual(axis.domain, [0, 4]);
+    assert.deepEqual(axis.ticks, [0, 1, 2, 3, 4]);
+    assert.deepEqual(axis.ticks.map(axis.format), ['1', '10', '100', '1000', '10K']);
+  });
+
+  it('keeps widely separated labels distinct', () => {
+    const axis = logarithmic_axis(-12, 12, 8);
+    const labels = axis.ticks.map(axis.format);
+    assert.equal(new Set(labels).size, labels.length);
+    assert.deepEqual(labels, [`1e${MINUS}12`, `1e${MINUS}9`, `1e${MINUS}6`, '0.001', '1', '1000', '1M', '1B', '1T']);
+  });
+
+  it('does not add an irregular final tick', () => {
+    const axis = logarithmic_axis(0, 20, 8);
+    const intervals = axis.ticks.slice(1).map((value, index) => value - axis.ticks[index]);
+    assert.deepEqual(axis.ticks, [0, 3, 6, 9, 12, 15, 18]);
+    assert.deepEqual([...new Set(intervals)], [3]);
   });
 });
 

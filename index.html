@@ -1,12 +1,27 @@
 
 <!doctype html>
-<html lang="en">
+<html lang="en" class="app-loading">
+
+<!--
+PAGE HEAD START (meta settings & stylesheet reference)
+//-->
+
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
   <meta name="description" content="Paste CSV data and create interactive line or scatter plots with ZeroPlot.">
   <title>ZeroPlot | Data Visualization</title>
-  <link rel="stylesheet" href="app_main/stylesheets/styles_main.css">
+<meta name="description" content="Paste CSV data and draw a line or scatter plot with a plotting library written from scratch in plain JavaScript.">
+<style>
+  /* Cover startup with one neutral color so the saved theme never flashes. */
+  html.app-loading { background: #242424; }
+  html.app-loading body { visibility: hidden; }
+</style>
+<script>
+  window.addEventListener('load', () => {
+    document.documentElement.classList.remove('app-loading');
+  }, { once: true });
+</script>
+<link rel="stylesheet" href="app_main/stylesheets/styles_main.css">
 </head>
 
 <body>
@@ -14,12 +29,26 @@
   <header class="topbar">
     <h1 class="page-title">Plotting Library: Warmup Exercise Team 06</h1>
 
-    <label class="theme-switch">
-      <span>Dark Mode</span>
-      <input type="checkbox" id="theme-toggle" role="switch">
-      <span class="slider" aria-hidden="true"></span>
-    </label>
-  </header>
+  <div class="settings">
+    <button class="settings-button" type="button" id="settings-button"
+      aria-label="Open settings" aria-expanded="false" aria-controls="settings-menu">
+      <img src="assets/settings.png" alt="" aria-hidden="true">
+    </button>
+    <div class="settings-menu" id="settings-menu" hidden>
+      <label class="theme-switch">
+        <span>Dark mode</span>
+        <input type="checkbox" id="theme-toggle" role="switch">
+        <span class="slider" aria-hidden="true"></span>
+      </label>
+      <label class="theme-switch settings-option">
+        <span>Logarithmic view</span>
+        <input type="checkbox" id="log-toggle">
+        <span class="slider" aria-hidden="true"></span>
+      </label>
+      <button class="settings-download" type="button" id="download-csv">Download CSV file</button>
+    </div>
+  </div>
+</header>
 
   <!-- Main application content -->
   <main class="layout">

@@ -10,7 +10,7 @@
  * out). It never touches the DOM, so it runs unchanged in Node tests, and the
  * page only has to put the returned markup into an element.
  */
-import { nice_axis, tick_formatter } from './axis_rendering.js';
+import { logarithmic_axis, nice_axis, tick_formatter } from './axis_rendering.js';
 import { clamp_view } from './viewport.js';
 import { compute_interpolation_factor } from '../../../libs/custom/math_operations.js';
 
@@ -175,6 +175,7 @@ function layout_legend(names, max_width) {
  * @param {Array<[number, number]>} [chart.points] shorthand for a single series named by `y_label`
  * @param {boolean[]} [chart.visibility] flags by original series index; omitted entries are visible
  * @param {'line'|'scatter'} [chart.type]
+ * @param {'linear'|'log'} [chart.scale]
  * @param {string} [chart.x_label]
  * @param {string} [chart.y_label]
  * @param {{ x: number[], y: number[] }} [chart.viewport] explicit view, clamped to full domains
@@ -182,21 +183,33 @@ function layout_legend(names, max_width) {
  * @param {string} [chart.clip_id] unique per mounted chart; allocated outside this pure renderer
  * @returns {Chart}
  */
-export function build_chart({ series, points, type = 'line', x_label = 'x', y_label = 'y', visibility, viewport, full_domains, clip_id } = {}) {
-  const series_list = (series ?? [{ name: y_label, points: points ?? [] }]).map((entry, position) => ({
-    name: String(entry.name ?? `Series ${position + 1}`),
-    points: entry.points ?? [],
-    color: SERIES_COLORS[position % SERIES_COLORS.length],
-    visible: visibility?.[position] !== false,
-    // One point cannot form a line, so it is shown as a marker.
-    markers: type === 'scatter' || entry.points?.length === 1,
-  }));
-  const point_count = series_list.reduce((sum, entry) => sum + entry.points.length, 0);
+export function build_chart({ series, points, type = 'line', scale = 'linear', x_label = 'x', y_label = 'y', visibility, viewport, full_domains, clip_id } = {}) {
+  const is_logarithmic = scale === 'log';
+  const is_plottable = ([x, y]) => !is_logarithmic || (x > 0 && y > 0);
+  const has_line_segment = (source) => source.some((point, index) => index > 0 && is_plottable(point) && is_plottable(source[index - 1]));
+  const transform = (value) => is_logarithmic ? Math.log10(value) : value;
+  const untransform = (value) => is_logarithmic ? 10 ** value : value;
+  const series_list = (series ?? [{ name: y_label, points: points ?? [] }]).map((entry, position) => {
+    const original_points = entry.points ?? [];
+    const plotted_points = original_points.filter(is_plottable);
+    return {
+      name: String(entry.name ?? `Series ${position + 1}`),
+      points: original_points,
+      plotted_points,
+      color: SERIES_COLORS[position % SERIES_COLORS.length],
+      visible: visibility?.[position] !== false,
+      // If exclusions leave no consecutive pair, the remaining points are markers.
+      markers: type === 'scatter' || (plotted_points.length > 0 && !has_line_segment(original_points)),
+    };
+  });
+  const point_count = series_list.reduce((sum, entry) => sum + entry.plotted_points.length, 0);
+  const excluded_points = series_list.reduce((sum, entry) => sum + entry.points.length - entry.plotted_points.length, 0);
   const has_data = point_count > 0;
   const visible_series = series_list.filter((entry) => entry.visible);
   const all_hidden = series_list.length > 0 && !visible_series.length;
-  const visible_count = visible_series.reduce((sum, entry) => sum + entry.points.length, 0);
-  const show_markers = series_list.some((entry) => entry.markers && entry.points.length > 0);
+  const visible_count = visible_series.reduce((sum, entry) => sum + entry.plotted_points.length, 0);
+  const show_markers = (is_logarithmic && excluded_points > 0)
+    || series_list.some((entry) => entry.markers && entry.plotted_points.length > 0);
 
   const left = MARGIN.left;
   const right = WIDTH - MARGIN.right;
@@ -207,10 +220,14 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   const plot_height = bottom - top;
 
   // Automatic axis ranges and ticks.
-  const [x_low, x_high] = has_data ? extent(series_list, 0) : [0, 1];
-  const [y_low, y_high] = has_data ? extent(series_list, 1) : [0, 1];
-  let x_axis = nice_axis(x_low, x_high, X_TICKS);
-  let y_axis = nice_axis(y_low, y_high, Y_TICKS);
+  const plotted_series = series_list.map((entry) => ({ points: entry.plotted_points }));
+  const [raw_x_low, raw_x_high] = has_data ? extent(plotted_series, 0) : [1, 10];
+  const [raw_y_low, raw_y_high] = has_data ? extent(plotted_series, 1) : [1, 10];
+  const [x_low, x_high] = [transform(raw_x_low), transform(raw_x_high)];
+  const [y_low, y_high] = [transform(raw_y_low), transform(raw_y_high)];
+  const make_axis = is_logarithmic ? logarithmic_axis : nice_axis;
+  let x_axis = make_axis(x_low, x_high, X_TICKS);
+  let y_axis = make_axis(y_low, y_high, Y_TICKS);
   let x_domain = x_axis.domain;
   let y_domain = y_axis.domain;
   if (show_markers) {
@@ -223,7 +240,7 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   [x_domain, y_domain] = [view.x, view.y];
   if (viewport) {
     const viewport_axis = (domain, count) => {
-      const axis = nice_axis(...domain, count);
+      const axis = make_axis(...domain, count);
       return { ...axis, ticks: axis.ticks.filter((value) => value >= domain[0] && value <= domain[1]) };
     };
     x_axis = viewport_axis(x_domain, X_TICKS);
@@ -231,8 +248,8 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   }
   const map_x = compute_interpolation_factor(x_domain, [left, right]);
   const map_y = compute_interpolation_factor(y_domain, [bottom, top]);
-  const format_x = tick_formatter(x_axis.ticks, x_axis.step);
-  const format_y = tick_formatter(y_axis.ticks, y_axis.step);
+  const format_x = x_axis.format ?? tick_formatter(x_axis.ticks, x_axis.step);
+  const format_y = y_axis.format ?? tick_formatter(y_axis.ticks, y_axis.step);
 
   const parts = [`<rect width="${WIDTH}" height="${HEIGHT}" fill="${COLORS.background}"/>`];
 
@@ -254,18 +271,34 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   /** @type {HitPoint[]} */
   const hit_points = [];
   series_list.forEach((entry, position) => {
-    if (!entry.visible || !entry.points.length) return;
-    const pixels = entry.points.map(([x, y]) => [num(map_x(x)), num(map_y(y))]);
-    entry.points.forEach(([x, y], index) => {
-      if (x < x_domain[0] || x > x_domain[1] || y < y_domain[0] || y > y_domain[1]) return;
-      hit_points.push({ series: position, name: entry.name, color: entry.color, x, y, px: pixels[index][0], py: pixels[index][1] });
+    if (!entry.visible || !entry.plotted_points.length) return;
+    const pixel = ([x, y]) => [num(map_x(transform(x))), num(map_y(transform(y)))];
+    entry.plotted_points.forEach(([x, y]) => {
+      const [scaled_x, scaled_y] = [transform(x), transform(y)];
+      if (scaled_x < x_domain[0] || scaled_x > x_domain[1] || scaled_y < y_domain[0] || scaled_y > y_domain[1]) return;
+      const [px, py] = pixel([x, y]);
+      hit_points.push({ series: position, name: entry.name, color: entry.color, x, y, px, py });
     });
     if (entry.markers) {
-      const circles = pixels.map(([px, py]) => `<circle cx="${px}" cy="${py}" r="${MARKER_RADIUS}"/>`).join('');
+      const circles = entry.plotted_points.map(pixel).map(([px, py]) => `<circle cx="${px}" cy="${py}" r="${MARKER_RADIUS}"/>`).join('');
       markers.push(`<g class="markers" fill="${entry.color}" stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke">${circles}</g>`);
     } else {
-      const coordinates = pixels.map(([px, py]) => `${px},${py}`).join(' ');
-      lines.push(`<polyline class="series" points="${coordinates}" fill="none" stroke="${entry.color}" stroke-width="${LINE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
+      let segment = [];
+      const finish_segment = () => {
+        if (segment.length > 1) {
+          const coordinates = segment.map(pixel).map(([px, py]) => `${px},${py}`).join(' ');
+          lines.push(`<polyline class="series" points="${coordinates}" fill="none" stroke="${entry.color}" stroke-width="${LINE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
+        } else if (segment.length === 1) {
+          const [px, py] = pixel(segment[0]);
+          markers.push(`<g class="markers" fill="${entry.color}" stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke"><circle cx="${px}" cy="${py}" r="${MARKER_RADIUS}"/></g>`);
+        }
+        segment = [];
+      };
+      for (const point of entry.points) {
+        if (is_plottable(point)) segment.push(point);
+        else finish_segment();
+      }
+      finish_segment();
     }
   });
   // Keep all line vertices, including those outside the view, so crossing segments survive.
@@ -274,7 +307,8 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   if (clip_id) parts.push(`<defs><clipPath id="${escape_xml(clip_id)}"><rect x="${left}" y="${top}" width="${plot_width}" height="${plot_height}"/></clipPath></defs>`);
   parts.push(clip_id ? `<g class="data"${clip}>` : `<svg class="data" x="${left}" y="${top}" width="${plot_width}" height="${plot_height}" viewBox="${left} ${top} ${plot_width} ${plot_height}" overflow="hidden">`, ...lines, ...markers, clip_id ? '</g>' : '</svg>');
   if (all_hidden || !has_data) {
-    parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, all_hidden ? 'No series selected' : 'No data', { size: 13, fill: COLORS.tick_text, baseline: 'middle' }));
+    const empty_text = all_hidden ? 'No series selected' : (is_logarithmic && excluded_points ? 'No positive data' : 'No data');
+    parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, empty_text, { size: 13, fill: COLORS.tick_text, baseline: 'middle' }));
   }
 
   // Axis lines, tick labels and axis titles.
@@ -317,15 +351,17 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   if (all_hidden) description = `${kind}. No series selected. 0 visible points.`;
   else if (has_data) {
     description = `${kind} of ${several ? `${visible_series.length} series (${names})` : y_label} against ${x_label} with ${visible_count} points. `
-      + `${x_label} ranges from ${x_low} to ${x_high}, ${several ? 'the values' : y_label} from ${y_low} to ${y_high}.`;
+      + `${x_label} ranges from ${raw_x_low} to ${raw_x_high}, ${several ? 'the values' : y_label} from ${raw_y_low} to ${raw_y_high}.`;
   }
 
-  if (viewport) description += ` Viewport: ${x_label} ${x_domain[0]} to ${x_domain[1]}; ${y_label} ${y_domain[0]} to ${y_domain[1]}.`;
+  if (is_logarithmic) description += ' Logarithmic scale.';
+  if (excluded_points) description += ` ${excluded_points} non-positive ${excluded_points === 1 ? 'point was' : 'points were'} not plotted.`;
+  if (viewport) description += ` Viewport: ${x_label} ${untransform(x_domain[0])} to ${untransform(x_domain[1])}; ${y_label} ${untransform(y_domain[0])} to ${untransform(y_domain[1])}.`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" `
     + `role="img" font-family="${escape_xml(FONT_FAMILY)}">`
     + `<title>${escape_xml(`${subject} vs ${x_label}`)}</title><desc>${escape_xml(description)}</desc>`
     + `${parts.join('')}</svg>`;
-  return { svg, hit_points, full_domains: full, viewport: view, clip_id, plot_area: { left, right, top, bottom } };
+  return { svg, hit_points, excluded_points, full_domains: full, viewport: view, clip_id, plot_area: { left, right, top, bottom } };
 }
 
 /**
