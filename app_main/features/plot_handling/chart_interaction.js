@@ -85,6 +85,7 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
     const { chart, point } = drag;
     const a = chart.plot_area;
     event.preventDefault();
+    show_hint('');
     set_view(pan_view(chart.viewport, chart.full_domains,
       (point.x - p.x) / (a.right - a.left), (p.y - point.y) / (a.bottom - a.top)));
   });

@@ -104,7 +104,6 @@ let full_domains = null;
 const clip_id = `plot-${crypto.randomUUID()}`;
 /** @type {import('../features/plot_handling/chart_rendering.js').Chart | null} */
 let chart = null;
-let table_marker_timer = null;
 
 const count_text = (count) => count.toLocaleString('en-US');
 
@@ -216,10 +215,10 @@ function center_table_value(values, column) {
   highlight_table_value(values, column);
   const headers = column_headers();
   if (column === 0) {
-    show_view_hint(`${headers[0]}: ${values[0]}`);
+    show_view_hint(`${headers[0]}: ${values[0]}`, undefined, undefined, true);
   } else {
     const color = SERIES_COLORS[(column - 1) % SERIES_COLORS.length];
-    show_view_hint(`${headers[column]}: ${values[column]} · ${headers[0]}: ${values[0]}`, color, contrast_text(color));
+    show_view_hint(`${headers[column]}: ${values[column]} · ${headers[0]}: ${values[0]}`, color, contrast_text(color), true);
   }
   $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -241,8 +240,6 @@ function highlight_table_value(values, column) {
     group.appendChild(circle);
   }
   $('chart').querySelector('svg')?.appendChild(group);
-  clearTimeout(table_marker_timer);
-  table_marker_timer = setTimeout(() => group.remove(), 1200);
 }
 
 function show_status(message, is_error = false) {
@@ -372,13 +369,14 @@ const clear_hover = () => {
   tooltip.hidden = true;
   $('chart').querySelector('.hover')?.remove();
 };
-const show_view_hint = (message, background = '#1e1e1e', color = '#f5f5f5') => {
+const show_view_hint = (message, background = '#1e1e1e', color = '#f5f5f5', persistent = false) => {
   const hint = $('view-status');
-  hint.classList.remove('view-status-visible');
+  hint.classList.remove('view-status-visible', 'view-status-persistent');
   hint.textContent = message;
   hint.style.setProperty('--view-hint-background', background);
   hint.style.setProperty('--view-hint-color', color);
   if (!message) return;
+  if (persistent) { hint.classList.add('view-status-persistent'); return; }
   void hint.offsetWidth;
   hint.classList.add('view-status-visible');
 };

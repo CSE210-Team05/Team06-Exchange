@@ -337,6 +337,7 @@ button:not(:disabled):active {
   white-space: nowrap;
 }
 .view-status-visible { animation: view-status 1200ms ease forwards; }
+.view-status-persistent { opacity: 1; }
 
 @keyframes view-status {
   0% { opacity: 0; transform: translate(-50%, calc(-50% + 4px)); }
@@ -450,13 +451,7 @@ input[type="text"]:focus, textarea:focus { outline: 2px solid var(--accent); out
   transform: none;
 }
 .table-selection-marker {
-  animation: table-selection-marker 1200ms ease forwards;
   pointer-events: none;
-}
-@keyframes table-selection-marker {
-  0% { opacity: 0; }
-  8%, 58% { opacity: 1; }
-  100% { opacity: 0; }
 }
 
 /* ------------------------------------------------------------------ narrow screens */
