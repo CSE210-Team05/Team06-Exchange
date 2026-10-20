@@ -104,6 +104,7 @@ let full_domains = null;
 const clip_id = `plot-${crypto.randomUUID()}`;
 /** @type {import('../features/plot_handling/chart_rendering.js').Chart | null} */
 let chart = null;
+let table_marker_timer = null;
 
 const count_text = (count) => count.toLocaleString('en-US');
 
@@ -212,6 +213,7 @@ function center_table_value(values, column) {
     }
   }
   draw_chart();
+  highlight_table_value(values, column);
   const headers = column_headers();
   if (column === 0) {
     show_view_hint(`${headers[0]}: ${values[0]}`);
@@ -220,6 +222,27 @@ function center_table_value(values, column) {
     show_view_hint(`${headers[column]}: ${values[column]} · ${headers[0]}: ${values[0]}`, color, contrast_text(color));
   }
   $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function highlight_table_value(values, column) {
+  const points = chart.hit_points.filter((point) => point.x === values[0]
+    && (column === 0 || (point.series === column - 1 && point.y === values[column])));
+  if (!points.length) return;
+  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  group.classList.add('table-selection-marker');
+  for (const point of points) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', point.px);
+    circle.setAttribute('cy', point.py);
+    circle.setAttribute('r', '7');
+    circle.setAttribute('fill', point.color);
+    circle.setAttribute('stroke', '#fcfcfb');
+    circle.setAttribute('stroke-width', '3');
+    group.appendChild(circle);
+  }
+  $('chart').querySelector('svg')?.appendChild(group);
+  clearTimeout(table_marker_timer);
+  table_marker_timer = setTimeout(() => group.remove(), 1200);
 }
 
 function show_status(message, is_error = false) {

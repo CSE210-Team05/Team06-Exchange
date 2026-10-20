@@ -449,6 +449,15 @@ input[type="text"]:focus, textarea:focus { outline: 2px solid var(--accent); out
   box-shadow: none;
   transform: none;
 }
+.table-selection-marker {
+  animation: table-selection-marker 1200ms ease forwards;
+  pointer-events: none;
+}
+@keyframes table-selection-marker {
+  0% { opacity: 0; }
+  8%, 58% { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 /* ------------------------------------------------------------------ narrow screens */
 /* Below this width the rail and the 720 px chart no longer fit side by side. */
