@@ -225,11 +225,29 @@ function center_table_value(values, column) {
 }
 
 function highlight_table_value(values, column) {
-  const points = chart.hit_points.filter((point) => point.x === values[0]
-    && (column === 0 || (point.series === column - 1 && point.y === values[column])));
-  if (!points.length) return [];
   const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   group.classList.add('table-selection-marker');
+  if (column === 0) {
+    const x = log_toggle.checked ? Math.log10(values[0]) : values[0];
+    const [low, high] = chart.viewport.x;
+    if (!Number.isFinite(x) || x < low || x > high) return [];
+    const { left, right, top, bottom } = chart.plot_area;
+    const px = left + (x - low) / (high - low) * (right - left);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', px);
+    line.setAttribute('x2', px);
+    line.setAttribute('y1', top);
+    line.setAttribute('y2', bottom);
+    line.setAttribute('stroke', '#52514e');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5 4');
+    group.appendChild(line);
+    $('chart').querySelector('svg')?.appendChild(group);
+    return [];
+  }
+  const points = chart.hit_points.filter((point) => point.x === values[0]
+    && point.series === column - 1 && point.y === values[column]);
+  if (!points.length) return [];
   for (const point of points) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', point.px);
