@@ -1,59 +1,47 @@
-
 <!doctype html>
 <html lang="en" class="app-loading">
-
-<!--
-PAGE HEAD START (meta settings & stylesheet reference)
-//-->
-
 <head>
-<meta charset="utf-8">
+  <meta charset="utf-8">
   <meta name="description" content="Paste CSV data and create interactive line or scatter plots with ZeroPlot.">
   <title>ZeroPlot | Data Visualization</title>
-<meta name="description" content="Paste CSV data and draw a line or scatter plot with a plotting library written from scratch in plain JavaScript.">
-<style>
-  /* Cover startup with one neutral color so the saved theme never flashes. */
-  html.app-loading { background: #242424; }
-  html.app-loading body { visibility: hidden; }
-</style>
-<script>
-  window.addEventListener('load', () => {
-    document.documentElement.classList.remove('app-loading');
-  }, { once: true });
-</script>
-<link rel="stylesheet" href="app_main/stylesheets/styles_main.css">
+  <style>
+    /* Prevent the saved theme from flashing during startup. */
+    html.app-loading { background: #242424; }
+    html.app-loading body { visibility: hidden; }
+  </style>
+  <script>
+    window.addEventListener('load', () => {
+      document.documentElement.classList.remove('app-loading');
+    }, { once: true });
+  </script>
+  <link rel="stylesheet" href="app_main/stylesheets/styles_main.css">
 </head>
 
 <body>
-  <!-- Application header -->
   <header class="topbar">
     <h1 class="page-title">Plotting Library: Warmup 2 (Team 05)</h1>
-
-  <div class="settings">
-    <button class="settings-button" type="button" id="settings-button"
-      aria-label="Open settings" aria-expanded="false" aria-controls="settings-menu">
-      <img src="assets/settings.png" alt="" aria-hidden="true">
-    </button>
-    <div class="settings-menu" id="settings-menu" hidden>
-      <label class="theme-switch">
-        <span>Dark mode</span>
-        <input type="checkbox" id="theme-toggle" role="switch">
-        <span class="slider" aria-hidden="true"></span>
-      </label>
-      <label class="theme-switch settings-option">
-        <span>Logarithmic view</span>
-        <input type="checkbox" id="log-toggle">
-        <span class="slider" aria-hidden="true"></span>
-      </label>
-      <button class="settings-download" type="button" id="download-csv">Download CSV file</button>
+    <div class="settings">
+      <button class="settings-button" type="button" id="settings-button"
+              aria-label="Open settings" aria-expanded="false" aria-controls="settings-menu">
+        <img src="assets/settings.png" alt="">
+      </button>
+      <div class="settings-menu" id="settings-menu" hidden>
+        <label class="theme-switch">
+          <span>Dark mode</span>
+          <input type="checkbox" id="theme-toggle" role="switch">
+          <span class="slider" aria-hidden="true"></span>
+        </label>
+        <label class="theme-switch settings-option">
+          <span>Logarithmic view</span>
+          <input type="checkbox" id="log-toggle">
+          <span class="slider" aria-hidden="true"></span>
+        </label>
+        <button class="settings-download" type="button" id="download-csv">Download CSV file</button>
+      </div>
     </div>
-  </div>
-</header>
+  </header>
 
-  <!-- Main application content -->
   <main class="layout">
-
-    <!-- Interactive plot -->
     <section class="panel plot-panel" aria-label="Interactive plot">
       <div class="toolbar">
         <div class="segmented" role="radiogroup" aria-label="Plot type">
@@ -73,7 +61,6 @@ PAGE HEAD START (meta settings & stylesheet reference)
         </div>
       </div>
 
-      <!-- Chart navigation controls -->
       <div class="view-controls" id="view-controls"
            role="group" aria-label="Chart view" aria-describedby="view-note">
         <button class="button" type="button" data-view="in">Zoom in</button>
@@ -89,7 +76,6 @@ PAGE HEAD START (meta settings & stylesheet reference)
         </p>
       </div>
 
-      <!-- Series visibility settings -->
       <fieldset class="series-controls" aria-describedby="series-note">
         <legend>Series visibility</legend>
         <p class="hint" id="series-note">
@@ -98,16 +84,13 @@ PAGE HEAD START (meta settings & stylesheet reference)
         <div id="series-controls"></div>
       </fieldset>
 
-      <!-- Chart output and hover tooltip -->
       <div class="chart">
         <div id="chart" role="region" aria-label="Data visualization chart"></div>
         <div class="tooltip" id="tooltip" aria-hidden="true" hidden></div>
       </div>
     </section>
 
-    <!-- Data input and chart settings -->
     <aside class="panel rail" aria-label="Plot settings">
-
       <section class="rail-section" aria-labelledby="data-heading">
         <h2 id="data-heading">Data</h2>
 
@@ -141,7 +124,6 @@ PAGE HEAD START (meta settings & stylesheet reference)
       </section>
     </aside>
 
-    <!-- Data table -->
     <section class="panel table-panel" aria-labelledby="table-title">
       <div class="panel-head">
         <h2 id="table-title">Data table</h2>
@@ -150,7 +132,6 @@ PAGE HEAD START (meta settings & stylesheet reference)
 
       <div class="table-wrap" id="table" tabindex="0" aria-labelledby="table-title"></div>
     </section>
-
   </main>
 
   <script type="module" src="app_main/page_scripts/app.js"></script>
