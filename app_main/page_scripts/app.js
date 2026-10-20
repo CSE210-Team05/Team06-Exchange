@@ -276,10 +276,12 @@ for (const radio of document.querySelectorAll('input[name="plot-type"]')) {
 
 // Both downloads use the chart's own markup, not the page, so a hover highlight never ends up in the file.
 $('download-svg').addEventListener('click', () => {
+  document.querySelector('.download-menu').open = false;
   if (chart) download_blob(`${DOWNLOAD_NAME}.svg`, svg_blob(chart.svg));
 });
 
 $('download-png').addEventListener('click', async () => {
+  document.querySelector('.download-menu').open = false;
   if (!chart) return;
   try {
     download_blob(`${DOWNLOAD_NAME}.png`, await svg_to_png(chart.svg));
