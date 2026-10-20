@@ -134,7 +134,11 @@ function draw_visibility_controls() {
     input.addEventListener('change', () => {
       visibility[index] = input.checked;
       draw_chart();
-      show_view_hint(`${input.checked ? 'Enabled' : 'Disabled'} ${name} visibility`);
+      const color = SERIES_COLORS[index % SERIES_COLORS.length];
+      const channels = color.slice(1).match(/../g).map((value) => parseInt(value, 16) / 255);
+      const luminance = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, value, channel) => sum + value * [0.2126, 0.7152, 0.0722][channel], 0);
+      show_view_hint(`${input.checked ? 'Enabled' : 'Disabled'} ${name} visibility`, color, luminance > 0.179 ? '#0b0b0b' : '#ffffff');
     });
     const key = document.createElement('span');
     key.className = 'series-key';
@@ -295,10 +299,12 @@ const clear_hover = () => {
   tooltip.hidden = true;
   $('chart').querySelector('.hover')?.remove();
 };
-const show_view_hint = (message) => {
+const show_view_hint = (message, background = '#1e1e1e', color = '#f5f5f5') => {
   const hint = $('view-status');
   hint.classList.remove('view-status-visible');
   hint.textContent = message;
+  hint.style.setProperty('--view-hint-background', background);
+  hint.style.setProperty('--view-hint-color', color);
   if (!message) return;
   void hint.offsetWidth;
   hint.classList.add('view-status-visible');
