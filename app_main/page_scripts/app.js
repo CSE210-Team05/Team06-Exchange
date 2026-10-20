@@ -8,6 +8,7 @@ import { build_chart, SERIES_COLORS } from '../features/plot_handling/chart_rend
 import { attach_navigation } from '../features/plot_handling/chart_interaction.js';
 import { attach_hover } from '../features/plot_handling/hover_tooltip.js';
 import { download_blob, download_csv, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
+import { clamp_domain } from '../features/plot_handling/viewport.js';
 
 /**
  * Example data shown on first load: two balls thrown straight up, at 20 m/s
@@ -172,12 +173,42 @@ function draw_table() {
   const body = table.createTBody();
   for (const values of data.rows.slice(0, TABLE_LIMIT)) {
     const row = body.insertRow();
-    for (const value of values) row.insertCell().textContent = value === null ? '' : String(value);
+    for (const [column, value] of values.entries()) {
+      const cell = row.insertCell();
+      if (value === null) continue;
+      const button = document.createElement('button');
+      button.className = 'table-value';
+      button.type = 'button';
+      button.title = 'Click to see in the graph';
+      button.textContent = String(value);
+      button.addEventListener('click', () => center_table_value(values, column));
+      cell.appendChild(button);
+    }
   }
   $('table').replaceChildren(table);
   $('table-note').textContent = data.rows.length > TABLE_LIMIT
     ? `First ${count_text(TABLE_LIMIT)} of ${count_text(data.rows.length)} rows`
     : `${count_text(data.rows.length)} rows`;
+}
+
+function center_table_value(values, column) {
+  if (!chart) return;
+  const centered = (axis, value) => {
+    const full = chart.full_domains[axis];
+    const current_width = chart.viewport[axis][1] - chart.viewport[axis][0];
+    const width = Math.min(current_width, (full[1] - full[0]) / 2);
+    return clamp_domain([value - width / 2, value + width / 2], full);
+  };
+  viewport = { x: centered('x', values[0]), y: [...chart.viewport.y] };
+  if (column > 0) {
+    viewport.y = centered('y', values[column]);
+    if (!visibility[column - 1]) {
+      visibility[column - 1] = true;
+      draw_visibility_controls();
+    }
+  }
+  draw_chart();
+  $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function show_status(message, is_error = false) {
