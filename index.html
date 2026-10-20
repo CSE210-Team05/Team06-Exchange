@@ -61,6 +61,19 @@
         </div>
       </div>
 
+      <fieldset class="series-controls" aria-describedby="series-note">
+        <legend>Series visibility</legend>
+        <p class="hint" id="series-note">
+          Controls affect the chart only. The data table includes all series.
+        </p>
+        <div id="series-controls"></div>
+      </fieldset>
+
+      <div class="chart">
+        <div id="chart" role="region" aria-label="Data visualization chart"></div>
+        <div class="tooltip" id="tooltip" aria-hidden="true" hidden></div>
+      </div>
+
       <div class="view-controls" id="view-controls"
            role="group" aria-label="Chart view" aria-describedby="view-note">
         <button class="button" type="button" data-view="in">Zoom in</button>
@@ -74,19 +87,6 @@
           Ctrl + wheel to zoom at the pointer; drag with the primary mouse button to pan.
           Maximum zoom: 100×. Touch pinch is not supported.
         </p>
-      </div>
-
-      <fieldset class="series-controls" aria-describedby="series-note">
-        <legend>Series visibility</legend>
-        <p class="hint" id="series-note">
-          Controls affect the chart only. The data table includes all series.
-        </p>
-        <div id="series-controls"></div>
-      </fieldset>
-
-      <div class="chart">
-        <div id="chart" role="region" aria-label="Data visualization chart"></div>
-        <div class="tooltip" id="tooltip" aria-hidden="true" hidden></div>
       </div>
     </section>
 
