@@ -225,6 +225,7 @@ button:not(:disabled):active {
 
 .segmented {
   display: inline-flex;
+  gap: 2px;
   padding: 2px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-control);
@@ -239,8 +240,11 @@ button:not(:disabled):active {
   color: var(--ink-2);
   font-size: 13px;
   font-weight: 500;
+  transition: background-color 120ms ease, box-shadow 120ms ease, color 120ms ease;
 }
+.segmented label:hover span { background: var(--surface); color: var(--ink); box-shadow: 0 1px 4px rgba(11, 11, 11, 0.14); }
 .segmented input:checked + span { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line-strong); }
+.segmented label:hover input:checked + span { box-shadow: 0 0 0 1px var(--line-strong), 0 2px 5px rgba(11, 11, 11, 0.16); }
 .segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .download-menu { position: relative; }
