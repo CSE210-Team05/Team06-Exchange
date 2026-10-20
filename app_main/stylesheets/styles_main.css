@@ -338,6 +338,8 @@ button:not(:disabled):active {
 }
 .view-status-visible { animation: view-status 1200ms ease forwards; }
 .view-status-persistent { opacity: 1; }
+.view-status-persistent.view-status-above { transform: translate(-50%, calc(-100% - 12px)); }
+.view-status-persistent.view-status-below { transform: translate(-50%, 12px); }
 
 @keyframes view-status {
   0% { opacity: 0; transform: translate(-50%, calc(-50% + 4px)); }

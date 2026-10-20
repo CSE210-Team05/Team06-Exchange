@@ -212,13 +212,14 @@ function center_table_value(values, column) {
     }
   }
   draw_chart();
-  highlight_table_value(values, column);
+  const selected_points = highlight_table_value(values, column);
   const headers = column_headers();
   if (column === 0) {
     show_view_hint(`${headers[0]}: ${values[0]}`, undefined, undefined, true);
   } else {
     const color = SERIES_COLORS[(column - 1) % SERIES_COLORS.length];
-    show_view_hint(`${headers[column]}: ${values[column]} · ${headers[0]}: ${values[0]}`, color, contrast_text(color), true);
+    show_view_hint(`${headers[column]}: ${values[column]} · ${headers[0]}: ${values[0]}`,
+      color, contrast_text(color), true, selected_points[0]);
   }
   $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -226,7 +227,7 @@ function center_table_value(values, column) {
 function highlight_table_value(values, column) {
   const points = chart.hit_points.filter((point) => point.x === values[0]
     && (column === 0 || (point.series === column - 1 && point.y === values[column])));
-  if (!points.length) return;
+  if (!points.length) return [];
   const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   group.classList.add('table-selection-marker');
   for (const point of points) {
@@ -240,6 +241,7 @@ function highlight_table_value(values, column) {
     group.appendChild(circle);
   }
   $('chart').querySelector('svg')?.appendChild(group);
+  return points;
 }
 
 function show_status(message, is_error = false) {
@@ -369,13 +371,22 @@ const clear_hover = () => {
   tooltip.hidden = true;
   $('chart').querySelector('.hover')?.remove();
 };
-const show_view_hint = (message, background = '#1e1e1e', color = '#f5f5f5', persistent = false) => {
+const show_view_hint = (message, background = '#1e1e1e', color = '#f5f5f5', persistent = false, point = null) => {
   const hint = $('view-status');
-  hint.classList.remove('view-status-visible', 'view-status-persistent');
+  hint.classList.remove('view-status-visible', 'view-status-persistent', 'view-status-above', 'view-status-below');
+  hint.style.removeProperty('left');
+  hint.style.removeProperty('top');
   hint.textContent = message;
   hint.style.setProperty('--view-hint-background', background);
   hint.style.setProperty('--view-hint-color', color);
   if (!message) return;
+  if (point) {
+    const host = $('chart');
+    hint.style.left = `${host.offsetLeft + point.px}px`;
+    hint.style.top = `${host.offsetTop + point.py}px`;
+    hint.classList.add(point.py > (chart.plot_area.top + chart.plot_area.bottom) / 2
+      ? 'view-status-above' : 'view-status-below');
+  }
   if (persistent) { hint.classList.add('view-status-persistent'); return; }
   void hint.offsetWidth;
   hint.classList.add('view-status-visible');
