@@ -64,6 +64,19 @@ kbd {
 
 h2 { margin: 0; font-size: 13px; font-weight: 600; }
 
+/* Give every button a consistent, visible interaction cue. */
+button {
+  transition: background-color 120ms ease, box-shadow 120ms ease, filter 120ms ease, transform 120ms ease;
+}
+button:not(:disabled):hover {
+  box-shadow: 0 2px 6px rgba(11, 11, 11, 0.16);
+  transform: translateY(-1px);
+}
+button:not(:disabled):active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
 /* ------------------------------------------------------------------ top bar */
 .topbar {
   display: flex;
@@ -289,8 +302,9 @@ input[type="text"]:focus, textarea:focus { outline: 2px solid var(--accent); out
   font: 500 13px/1 var(--font-ui);
   cursor: pointer;
 }
+.button:hover { background: var(--surface-sunk); }
 .button-primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-.button-primary:hover { filter: brightness(1.08); }
+.button-primary:hover { background: var(--accent); filter: brightness(1.08); }
 
 .hint { color: var(--ink-3); font-size: 12px; }
 .status { margin: 0; color: var(--ink-2); font-size: 12px; }
