@@ -12,6 +12,7 @@
  */
 import { logarithmic_axis, nice_axis, tick_formatter } from './axis_rendering.js';
 import { clamp_view } from './viewport.js';
+import { REDUCE_THRESHOLD, reduce_line, reduce_scatter } from './point_reduction.js';
 import { compute_interpolation_factor } from '../../../libs/custom/math_operations.js';
 
 export const WIDTH = 720;
@@ -270,28 +271,26 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
   const markers = [];
   /** @type {HitPoint[]} */
   const hit_points = [];
+  const plot_bounds = { left, right, top, bottom };
+  let any_condensed = false;
+  const pixel_x = (x) => map_x(transform(x));
+  const pixel_y = (y) => map_y(transform(y));
+  const ring = `stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke"`;
   series_list.forEach((entry, position) => {
     if (!entry.visible || !entry.plotted_points.length) return;
-    const pixel = ([x, y]) => [num(map_x(transform(x))), num(map_y(transform(y)))];
-    entry.plotted_points.forEach(([x, y]) => {
-      const [scaled_x, scaled_y] = [transform(x), transform(y)];
-      if (scaled_x < x_domain[0] || scaled_x > x_domain[1] || scaled_y < y_domain[0] || scaled_y > y_domain[1]) return;
-      const [px, py] = pixel([x, y]);
-      hit_points.push({ series: position, name: entry.name, color: entry.color, x, y, px, py });
-    });
+    // A dense series is condensed to what its pixels can show; the kept points are original data.
+    const condensed = entry.plotted_points.length > REDUCE_THRESHOLD;
+    if (condensed) any_condensed = true;
+    const draw = (points, reduce) => (condensed ? reduce(points) : points.map(([x, y]) => [x, y, pixel_x(x), pixel_y(y)]));
+    // Lines are drawn as runs of plottable points; scatter markers form a single group.
+    let groups;
     if (entry.markers) {
-      const circles = entry.plotted_points.map(pixel).map(([px, py]) => `<circle cx="${px}" cy="${py}" r="${MARKER_RADIUS}"/>`).join('');
-      markers.push(`<g class="markers" fill="${entry.color}" stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke">${circles}</g>`);
+      groups = [draw(entry.plotted_points, (points) => reduce_scatter(points, pixel_x, pixel_y, plot_bounds, MARKER_RADIUS, MARKER_RADIUS + MARKER_RING))];
     } else {
+      groups = [];
       let segment = [];
       const finish_segment = () => {
-        if (segment.length > 1) {
-          const coordinates = segment.map(pixel).map(([px, py]) => `${px},${py}`).join(' ');
-          lines.push(`<polyline class="series" points="${coordinates}" fill="none" stroke="${entry.color}" stroke-width="${LINE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
-        } else if (segment.length === 1) {
-          const [px, py] = pixel(segment[0]);
-          markers.push(`<g class="markers" fill="${entry.color}" stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke"><circle cx="${px}" cy="${py}" r="${MARKER_RADIUS}"/></g>`);
-        }
+        if (segment.length) groups.push(draw(segment, (points) => reduce_line(points, pixel_x, pixel_y, plot_bounds)));
         segment = [];
       };
       for (const point of entry.points) {
@@ -299,6 +298,26 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
         else finish_segment();
       }
       finish_segment();
+    }
+    for (const group of groups) {
+      for (const [x, y, px, py] of group) {
+        const [scaled_x, scaled_y] = [transform(x), transform(y)];
+        if (scaled_x < x_domain[0] || scaled_x > x_domain[1] || scaled_y < y_domain[0] || scaled_y > y_domain[1]) continue;
+        hit_points.push({ series: position, name: entry.name, color: entry.color, x, y, px: num(px), py: num(py) });
+      }
+    }
+    const circle = ([, , px, py]) => `<circle cx="${num(px)}" cy="${num(py)}" r="${MARKER_RADIUS}"/>`;
+    if (entry.markers) {
+      markers.push(`<g class="markers" fill="${entry.color}" ${ring}>${groups[0].map(circle).join('')}</g>`);
+      return;
+    }
+    for (const group of groups) {
+      if (group.length > 1) {
+        const coordinates = group.map(([, , px, py]) => `${num(px)},${num(py)}`).join(' ');
+        lines.push(`<polyline class="series" points="${coordinates}" fill="none" stroke="${entry.color}" stroke-width="${LINE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
+      } else {
+        markers.push(`<g class="markers" fill="${entry.color}" ${ring}>${circle(group[0])}</g>`);
+      }
     }
   });
   // Keep all line vertices, including those outside the view, so crossing segments survive.
@@ -356,6 +375,7 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
 
   if (is_logarithmic) description += ' Logarithmic scale.';
   if (excluded_points) description += ` ${excluded_points} non-positive ${excluded_points === 1 ? 'point was' : 'points were'} not plotted.`;
+  if (any_condensed) description += ' Dense series are condensed to the pixels available; all values are in the data table.';
   if (viewport) description += ` Viewport: ${x_label} ${untransform(x_domain[0])} to ${untransform(x_domain[1])}; ${y_label} ${untransform(y_domain[0])} to ${untransform(y_domain[1])}.`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" `
     + `role="img" font-family="${escape_xml(FONT_FAMILY)}">`
