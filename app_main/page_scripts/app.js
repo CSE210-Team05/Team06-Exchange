@@ -197,11 +197,17 @@ function draw_table() {
 
 function center_table_value(values, column) {
   if (!chart) return;
+  if (log_toggle.checked && (values[0] <= 0 || (column > 0 && values[column] <= 0))) {
+    show_view_hint('This value cannot be shown in logarithmic view');
+    $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const centered = (axis, value) => {
     const full = chart.full_domains[axis];
     const current_width = chart.viewport[axis][1] - chart.viewport[axis][0];
     const width = Math.min(current_width, (full[1] - full[0]) / 2);
-    return clamp_domain([value - width / 2, value + width / 2], full);
+    const coordinate = log_toggle.checked ? Math.log10(value) : value;
+    return clamp_domain([coordinate - width / 2, coordinate + width / 2], full);
   };
   viewport = { x: centered('x', values[0]), y: [...chart.viewport.y] };
   if (column > 0) {
