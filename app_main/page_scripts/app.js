@@ -125,6 +125,13 @@ function draw_chart() {
   show_status(describe_data());
 }
 
+function contrast_text(background) {
+  const channels = background.slice(1).match(/../g).map((value) => parseInt(value, 16) / 255);
+  const luminance = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, value, channel) => sum + value * [0.2126, 0.7152, 0.0722][channel], 0);
+  return luminance > 0.179 ? '#0b0b0b' : '#ffffff';
+}
+
 /** Native controls keep focus while the chart redraws; CSV names are text only. */
 function draw_visibility_controls() {
   const controls = data.names.map((name, index) => {
@@ -136,10 +143,7 @@ function draw_visibility_controls() {
       visibility[index] = input.checked;
       draw_chart();
       const color = SERIES_COLORS[index % SERIES_COLORS.length];
-      const channels = color.slice(1).match(/../g).map((value) => parseInt(value, 16) / 255);
-      const luminance = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
-        .reduce((sum, value, channel) => sum + value * [0.2126, 0.7152, 0.0722][channel], 0);
-      show_view_hint(`${input.checked ? 'Enabled' : 'Disabled'} ${name} visibility`, color, luminance > 0.179 ? '#0b0b0b' : '#ffffff');
+      show_view_hint(`${input.checked ? 'Enabled' : 'Disabled'} ${name} visibility`, color, contrast_text(color));
     });
     const key = document.createElement('span');
     key.className = 'series-key';
@@ -208,6 +212,13 @@ function center_table_value(values, column) {
     }
   }
   draw_chart();
+  const headers = column_headers();
+  if (column === 0) {
+    show_view_hint(`${headers[0]}: ${values[0]}`);
+  } else {
+    const color = SERIES_COLORS[(column - 1) % SERIES_COLORS.length];
+    show_view_hint(`${headers[column]}: ${values[column]} · ${headers[0]}: ${values[0]}`, color, contrast_text(color));
+  }
   $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
