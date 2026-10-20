@@ -153,6 +153,14 @@ function draw_visibility_controls() {
 }
 
 function draw_table() {
+  if (!data.rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'table-empty';
+    empty.textContent = 'No data to display.';
+    $('table').replaceChildren(empty);
+    $('table-note').textContent = '0 rows';
+    return;
+  }
   const table = document.createElement('table');
   const head_row = table.createTHead().insertRow();
   for (const label of column_headers()) {

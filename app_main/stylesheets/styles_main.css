@@ -405,9 +405,32 @@ input[type="text"]:focus, textarea:focus { outline: 2px solid var(--accent); out
 
 .table-wrap { max-height: 320px; overflow: auto; }
 .table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
-.table-wrap th, .table-wrap td { padding: 5px 16px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
-.table-wrap thead th { position: sticky; top: 0; background: var(--surface); color: var(--ink-2); font-weight: 600; }
+.table-wrap th, .table-wrap td { padding: 7px 16px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.table-wrap thead th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  border-bottom-color: var(--line-strong);
+  background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+  color: var(--ink);
+  font-weight: 650;
+}
+.table-wrap tbody tr:nth-child(even) td { background: var(--surface-sunk); }
+.table-wrap tbody tr:hover td { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.table-wrap th:first-child, .table-wrap td:first-child {
+  position: sticky;
+  left: 0;
+  border-right: 1px solid var(--line-strong);
+  background: var(--surface);
+}
+.table-wrap tbody tr:nth-child(even) td:first-child { background: var(--surface-sunk); }
+.table-wrap tbody tr:hover td:first-child { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.table-wrap thead th:first-child {
+  z-index: 2;
+  background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+}
 .table-wrap tbody tr:last-child td { border-bottom: 0; }
+.table-empty { margin: 0; padding: 32px 16px; color: var(--ink-3); text-align: center; }
 
 /* ------------------------------------------------------------------ narrow screens */
 /* Below this width the rail and the 720 px chart no longer fit side by side. */
