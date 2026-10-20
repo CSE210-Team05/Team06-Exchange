@@ -67,6 +67,8 @@ it('supports button actions and resetting without registering listeners on redra
   assert.equal(s.views.length, 7);
   assert.equal(s.views.at(-1), null);
   assert.equal(s.hints.at(-1), 'View reset');
+  assert.equal(s.hints[0], 'Zoom level: 2.5×');
+  assert.equal(s.hints[1], 'Zoom level: 1.6×');
   assert.deepEqual(s.views[2].x, [15, 65]);
   assert.deepEqual(s.views[4].y, [35, 85]);
 });

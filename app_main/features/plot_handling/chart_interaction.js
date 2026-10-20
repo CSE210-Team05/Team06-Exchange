@@ -28,6 +28,11 @@ function at_limit(action, { viewport, full_domains }) {
   return false;
 }
 
+function zoom_message(view, full) {
+  const level = (full.x[1] - full.x[0]) / (view.x[1] - view.x[0]);
+  return `Zoom level: ${Math.round(level * 100) / 100}×`;
+}
+
 export function svg_pointer(svg, event) {
   const matrix = svg?.getScreenCTM();
   if (!matrix) return null;
@@ -54,9 +59,13 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
     const a = chart.plot_area;
     event.preventDefault();
     clear_hover();
-    set_view(zoom_view(chart.viewport, chart.full_domains, Math.exp(Math.sign(event.deltaY) * 0.2), {
+    const action = event.deltaY < 0 ? 'in' : 'out';
+    if (at_limit(action, chart)) { show_hint(LIMIT_MESSAGES[action]); return; }
+    const view = zoom_view(chart.viewport, chart.full_domains, Math.exp(Math.sign(event.deltaY) * 0.2), {
       x: (p.x - a.left) / (a.right - a.left), y: (a.bottom - p.y) / (a.bottom - a.top),
-    }));
+    });
+    show_hint(zoom_message(view, chart.full_domains));
+    set_view(view);
   }, { passive: false });
   host.addEventListener('pointerdown', (event) => {
     const chart = get_chart();
@@ -88,10 +97,12 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
     clear_hover();
     if (action === 'reset') { show_hint('View reset'); set_view(null); return; }
     if (at_limit(action, chart)) { show_hint(LIMIT_MESSAGES[action]); return; }
-    show_hint('');
     if (action === 'in' || action === 'out') {
-      set_view(zoom_view(chart.viewport, chart.full_domains, action === 'in' ? 0.8 : 1.25));
+      const view = zoom_view(chart.viewport, chart.full_domains, action === 'in' ? 0.8 : 1.25);
+      show_hint(zoom_message(view, chart.full_domains));
+      set_view(view);
     } else {
+      show_hint('');
       const [dx, dy] = { left: [-0.2, 0], right: [0.2, 0], up: [0, 0.2], down: [0, -0.2] }[action];
       set_view(pan_view(chart.viewport, chart.full_domains, dx, dy));
     }
