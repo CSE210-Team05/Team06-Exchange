@@ -12,6 +12,7 @@
  */
 import { nice_axis, tick_formatter } from './axis_rendering.js';
 import { clamp_view } from './viewport.js';
+import { REDUCE_THRESHOLD, reduce_line, reduce_scatter } from './point_reduction.js';
 import { compute_interpolation_factor } from '../../../libs/custom/math_operations.js';
 
 export const WIDTH = 720;
@@ -253,10 +254,20 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
   const markers = [];
   /** @type {HitPoint[]} */
   const hit_points = [];
+  const plot_bounds = { left, right, top, bottom };
+  let any_condensed = false;
   series_list.forEach((entry, position) => {
     if (!entry.visible || !entry.points.length) return;
-    const pixels = entry.points.map(([x, y]) => [num(map_x(x)), num(map_y(y))]);
-    entry.points.forEach(([x, y], index) => {
+    // A dense series is condensed to what its pixels can show; the kept points are original data.
+    const condensed = entry.points.length > REDUCE_THRESHOLD;
+    if (condensed) any_condensed = true;
+    const drawn = condensed
+      ? (entry.markers
+        ? reduce_scatter(entry.points, map_x, map_y, plot_bounds, MARKER_RADIUS, MARKER_RADIUS + MARKER_RING)
+        : reduce_line(entry.points, map_x, map_y, plot_bounds))
+      : entry.points.map(([x, y]) => [x, y, map_x(x), map_y(y)]);
+    const pixels = drawn.map(([, , px, py]) => [num(px), num(py)]);
+    drawn.forEach(([x, y], index) => {
       if (x < x_domain[0] || x > x_domain[1] || y < y_domain[0] || y > y_domain[1]) return;
       hit_points.push({ series: position, name: entry.name, color: entry.color, x, y, px: pixels[index][0], py: pixels[index][1] });
     });
@@ -320,6 +331,7 @@ export function build_chart({ series, points, type = 'line', x_label = 'x', y_la
       + `${x_label} ranges from ${x_low} to ${x_high}, ${several ? 'the values' : y_label} from ${y_low} to ${y_high}.`;
   }
 
+  if (any_condensed) description += ' Dense series are condensed to the pixels available; all values are in the data table.';
   if (viewport) description += ` Viewport: ${x_label} ${x_domain[0]} to ${x_domain[1]}; ${y_label} ${y_domain[0]} to ${y_domain[1]}.`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" `
     + `role="img" font-family="${escape_xml(FONT_FAMILY)}">`
