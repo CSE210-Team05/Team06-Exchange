@@ -315,6 +315,40 @@ button:not(:disabled):active {
 .tooltip-name { overflow: hidden; color: var(--ink-2); text-overflow: ellipsis; white-space: nowrap; }
 .tooltip-value { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+.view-status {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, #1e1e1e 90%, transparent);
+  box-shadow: 0 4px 16px rgba(11, 11, 11, 0.16);
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+.view-status-visible { animation: view-status 1200ms ease forwards; }
+
+@keyframes view-status {
+  0% { opacity: 0; transform: translate(-50%, calc(-50% + 4px)); }
+  8%, 58% { opacity: 1; transform: translate(-50%, -50%); }
+  100% { opacity: 0; transform: translate(-50%, -50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-status-visible { animation: view-status-reduced 1200ms step-end forwards; }
+  @keyframes view-status-reduced {
+    0%, 99% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+}
+
 /* ------------------------------------------------------------------ settings rail */
 .rail-section { display: grid; gap: 12px; padding: 16px; }
 .rail-section + .rail-section { border-top: 1px solid var(--line); }

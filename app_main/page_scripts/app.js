@@ -294,10 +294,18 @@ const clear_hover = () => {
   tooltip.hidden = true;
   $('chart').querySelector('.hover')?.remove();
 };
+const show_view_hint = (message) => {
+  const hint = $('view-status');
+  hint.classList.remove('view-status-visible');
+  hint.textContent = message;
+  if (!message) return;
+  void hint.offsetWidth;
+  hint.classList.add('view-status-visible');
+};
 const navigation = attach_navigation($('chart'), $('view-controls'), () => chart, (view) => {
   viewport = view;
   draw_chart();
-}, clear_hover);
+}, clear_hover, show_view_hint);
 attach_hover($('chart'), tooltip, () => !navigation.is_dragging() && chart && { ...chart, type, x_label: x_label_input.value });
 
 csv_input.value = SAMPLE_CSV;
