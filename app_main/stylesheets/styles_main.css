@@ -1,5 +1,5 @@
 /*
- * ZeroPlot page styles. One fixed light look, no external fonts.
+ * ZeroPlot page styles.
  *
  * Layout: a settings rail (CSV input, axis titles) beside the plot, with the
  * data table under the plot. On narrow screens: plot, settings, table.
@@ -17,7 +17,7 @@
   --on-accent: #ffffff;
   --danger: #b42318;
   --switch-off: #74736f;
-  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-ui: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-code: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --radius-control: 6px;
   --radius-panel: 10px;

@@ -17,7 +17,7 @@ import { compute_interpolation_factor } from '../../../libs/custom/math_operatio
 export const WIDTH = 720;
 export const HEIGHT = 440;
 const MARGIN = { top: 24, right: 32, bottom: 62, left: 88 };
-const FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+const FONT_FAMILY = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 /** Chart colours. */
 export const COLORS = {
