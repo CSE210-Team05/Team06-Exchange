@@ -134,6 +134,7 @@ function draw_visibility_controls() {
     input.addEventListener('change', () => {
       visibility[index] = input.checked;
       draw_chart();
+      show_view_hint(`${input.checked ? 'Enabled' : 'Disabled'} ${name} visibility`);
     });
     const key = document.createElement('span');
     key.className = 'series-key';
