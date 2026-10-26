@@ -63,15 +63,15 @@ export function find_hover_points(hit_points, px, py, type) {
 }
 
 /** Markup of the highlight: a vertical hairline in a line plot, and a ringed dot on every point. */
-function highlight_markup(found, type, plot_area) {
+function highlight_markup(found, type, plot_area, colors) {
   const parts = [];
   if (type !== 'scatter') {
     const x = Math.round(found[0].px) + 0.5;
-    parts.push(`<line x1="${x}" y1="${plot_area.top}" x2="${x}" y2="${plot_area.bottom}" stroke="${COLORS.axis}" stroke-width="1"/>`);
+    parts.push(`<line x1="${x}" y1="${plot_area.top}" x2="${x}" y2="${plot_area.bottom}" stroke="${colors.axis}" stroke-width="1"/>`);
   }
   for (const point of found) {
     parts.push(`<circle cx="${point.px}" cy="${point.py}" r="${MARKER_RADIUS + HIGHLIGHT_GROWTH}" fill="${point.color}" `
-      + `stroke="${COLORS.background}" stroke-width="${HIGHLIGHT_RING}"/>`);
+      + `stroke="${colors.background}" stroke-width="${HIGHLIGHT_RING}"/>`);
   }
   return parts.join('');
 }
@@ -164,7 +164,7 @@ export function attach_hover(host, tooltip, get_chart) {
       if (chart.clip_id) highlight.setAttribute('clip-path', `url(#${chart.clip_id})`);
       svg.appendChild(highlight);
     }
-    highlight.innerHTML = highlight_markup(found, chart.type, chart.plot_area);
+    highlight.innerHTML = highlight_markup(found, chart.type, chart.plot_area, chart.colors ?? COLORS);
 
     fill_tooltip(tooltip, found, chart.x_label);
     tooltip.hidden = false;

@@ -20,14 +20,29 @@ export const HEIGHT = 440;
 const MARGIN = { top: 24, right: 32, bottom: 62, left: 88 };
 const FONT_FAMILY = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-/** Chart colours. */
-export const COLORS = {
-  background: '#fcfcfb',
-  grid: '#e1e0d9',
-  axis: '#a8a79f',
-  tick_text: '#52514e',
-  label_text: '#2b2b29',
+/**
+ * Chart colours per theme. The dark background is the page's dark surface
+ * colour, so the chart blends into its panel.
+ */
+export const THEMES = {
+  light: {
+    background: '#fcfcfb',
+    grid: '#e1e0d9',
+    axis: '#a8a79f',
+    tick_text: '#52514e',
+    label_text: '#2b2b29',
+  },
+  dark: {
+    background: '#1e1e1e',
+    grid: '#333333',
+    axis: '#6f6f6f',
+    tick_text: '#c5c5c5',
+    label_text: '#f5f5f5',
+  },
 };
+
+/** Colours of the light theme, the default. */
+export const COLORS = THEMES.light;
 
 /**
  * One colour per series, used in this order. Every colour keeps at least
@@ -166,6 +181,7 @@ function layout_legend(names, max_width) {
  * @typedef {object} Chart
  * @property {string} svg a standalone SVG document
  * @property {HitPoint[]} hit_points every drawn point, series by series
+ * @property {typeof COLORS} colors the colours the chart was drawn with
  * @property {{ left: number, right: number, top: number, bottom: number }} plot_area the area inside the axes, in px
  */
 
@@ -181,15 +197,17 @@ function layout_legend(names, max_width) {
  * @param {string} [chart.y_label]
  * @param {{ x: number[], y: number[] }} [chart.viewport] explicit view, clamped to full domains
  * @param {{ x: number[], y: number[] }} [chart.full_domains] stable padded bounds supplied by the application
+ * @param {'light'|'dark'} [chart.theme] colours of the background, grid, axes and text
  * @param {string} [chart.clip_id] unique per mounted chart; allocated outside this pure renderer
  * @returns {Chart}
  */
-export function build_chart({ series, points, type = 'line', scale = 'linear', x_label = 'x', y_label = 'y', visibility, viewport, full_domains, clip_id } = {}) {
+export function build_chart({ series, points, type = 'line', scale = 'linear', theme = 'light', x_label = 'x', y_label = 'y', visibility, viewport, full_domains, clip_id } = {}) {
   const is_logarithmic = scale === 'log';
   const is_plottable = ([x, y]) => !is_logarithmic || (x > 0 && y > 0);
   const has_line_segment = (source) => source.some((point, index) => index > 0 && is_plottable(point) && is_plottable(source[index - 1]));
   const transform = (value) => is_logarithmic ? Math.log10(value) : value;
   const untransform = (value) => is_logarithmic ? 10 ** value : value;
+  const colors = THEMES[theme] ?? THEMES.light;
   const series_list = (series ?? [{ name: y_label, points: points ?? [] }]).map((entry, position) => {
     const original_points = entry.points ?? [];
     const plotted_points = original_points.filter(is_plottable);
@@ -252,16 +270,16 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
   const format_x = x_axis.format ?? tick_formatter(x_axis.ticks, x_axis.step);
   const format_y = y_axis.format ?? tick_formatter(y_axis.ticks, y_axis.step);
 
-  const parts = [`<rect width="${WIDTH}" height="${HEIGHT}" fill="${COLORS.background}"/>`];
+  const parts = [`<rect width="${WIDTH}" height="${HEIGHT}" fill="${colors.background}"/>`];
 
   // Grid. Lines that coincide with the axis lines are left out.
   for (const value of x_axis.ticks) {
     const x = crisp(map_x(value));
-    if (x !== crisp(left)) parts.push(hairline('grid-x', x, top, x, bottom, COLORS.grid));
+    if (x !== crisp(left)) parts.push(hairline('grid-x', x, top, x, bottom, colors.grid));
   }
   for (const value of y_axis.ticks) {
     const y = crisp(map_y(value));
-    if (y !== crisp(bottom)) parts.push(hairline('grid-y', left, y, right, y, COLORS.grid));
+    if (y !== crisp(bottom)) parts.push(hairline('grid-y', left, y, right, y, colors.grid));
   }
 
   // Data: all lines first, then all markers on top. Markers paint their ring
@@ -275,7 +293,7 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
   let any_condensed = false;
   const pixel_x = (x) => map_x(transform(x));
   const pixel_y = (y) => map_y(transform(y));
-  const ring = `stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke"`;
+  const ring = `stroke="${colors.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke"`;
   series_list.forEach((entry, position) => {
     if (!entry.visible || !entry.plotted_points.length) return;
     // A dense series is condensed to what its pixels can show; the kept points are original data.
@@ -327,23 +345,23 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
   parts.push(clip_id ? `<g class="data"${clip}>` : `<svg class="data" x="${left}" y="${top}" width="${plot_width}" height="${plot_height}" viewBox="${left} ${top} ${plot_width} ${plot_height}" overflow="hidden">`, ...lines, ...markers, clip_id ? '</g>' : '</svg>');
   if (all_hidden || !has_data) {
     const empty_text = all_hidden ? 'No series selected' : (is_logarithmic && excluded_points ? 'No positive data' : 'No data');
-    parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, empty_text, { size: 13, fill: COLORS.tick_text, baseline: 'middle' }));
+    parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, empty_text, { size: 13, fill: colors.tick_text, baseline: 'middle' }));
   }
 
   // Axis lines, tick labels and axis titles.
-  parts.push(hairline('axis', left, crisp(bottom), right, crisp(bottom), COLORS.axis));
-  parts.push(hairline('axis', crisp(left), top, crisp(left), bottom, COLORS.axis));
+  parts.push(hairline('axis', left, crisp(bottom), right, crisp(bottom), colors.axis));
+  parts.push(hairline('axis', crisp(left), top, crisp(left), bottom, colors.axis));
   for (const value of x_axis.ticks) {
-    parts.push(text('tick-x', map_x(value), bottom + 8, format_x(value), { size: TICK_FONT, fill: COLORS.tick_text, baseline: 'top' }));
+    parts.push(text('tick-x', map_x(value), bottom + 8, format_x(value), { size: TICK_FONT, fill: colors.tick_text, baseline: 'top' }));
   }
   for (const value of y_axis.ticks) {
-    parts.push(text('tick-y', left - 8, map_y(value), format_y(value), { size: TICK_FONT, fill: COLORS.tick_text, anchor: 'end', baseline: 'middle' }));
+    parts.push(text('tick-y', left - 8, map_y(value), format_y(value), { size: TICK_FONT, fill: colors.tick_text, anchor: 'end', baseline: 'middle' }));
   }
   parts.push(text('label-x', left + plot_width / 2, bottom + 34, fit_text(String(x_label), plot_width, LABEL_FONT), {
-    size: LABEL_FONT, weight: 500, fill: COLORS.label_text, baseline: 'top',
+    size: LABEL_FONT, weight: 500, fill: colors.label_text, baseline: 'top',
   }));
   parts.push(text('label-y', 18, top + plot_height / 2, fit_text(String(y_label), plot_height, LABEL_FONT), {
-    size: LABEL_FONT, weight: 500, fill: COLORS.label_text, baseline: 'top', rotate: -90,
+    size: LABEL_FONT, weight: 500, fill: colors.label_text, baseline: 'top', rotate: -90,
   }));
 
   // Legend: a short line or a dot in the series colour, then the series name.
@@ -356,7 +374,7 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
       ? `<circle class="legend-key" cx="${num(x + LEGEND_KEY / 2)}" cy="${num(y)}" r="${MARKER_RADIUS}" fill="${color}"/>`
       : `<line class="legend-key" x1="${num(x)}" y1="${num(y)}" x2="${num(x + LEGEND_KEY)}" y2="${num(y)}" stroke="${color}" stroke-width="${LINE_WIDTH}" stroke-linecap="round"/>`);
     parts.push(text('legend-label', x + LEGEND_KEY + LEGEND_KEY_GAP, y, entry.label, {
-      size: LEGEND_FONT, fill: COLORS.tick_text, anchor: 'start', baseline: 'middle',
+      size: LEGEND_FONT, fill: colors.tick_text, anchor: 'start', baseline: 'middle',
     }));
     parts.push('</g>');
   });
@@ -381,7 +399,7 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
     + `role="img" font-family="${escape_xml(FONT_FAMILY)}">`
     + `<title>${escape_xml(`${subject} vs ${x_label}`)}</title><desc>${escape_xml(description)}</desc>`
     + `${parts.join('')}</svg>`;
-  return { svg, hit_points, excluded_points, full_domains: full, viewport: view, clip_id, plot_area: { left, right, top, bottom } };
+  return { svg, colors, hit_points, excluded_points, full_domains: full, viewport: view, clip_id, plot_area: { left, right, top, bottom } };
 }
 
 /**

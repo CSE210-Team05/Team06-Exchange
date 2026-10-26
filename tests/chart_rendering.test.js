@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { HEIGHT, MARKER_RADIUS, SERIES_COLORS, WIDTH, build_chart, render_chart } from '../app_main/features/plot_handling/chart_rendering.js';
+import { HEIGHT, MARKER_RADIUS, SERIES_COLORS, THEMES, WIDTH, build_chart, render_chart } from '../app_main/features/plot_handling/chart_rendering.js';
 
 const sample = [[0, 0], [1, 15.1], [2, 20.4], [3, 15.9], [4, 1.6]];
 const two_series = [
@@ -263,5 +263,30 @@ describe('series visibility', () => {
     assert.equal(build_chart({ points: sample, visibility: [false] }).hit_points.length, 0);
     assert.deepEqual(texts(render_chart({ series: [] }), 'empty'), ['No data']);
     assert.deepEqual(texts(render_chart({ points: sample, visibility: [false] }), 'legend-label'), ['y']);
+  });
+});
+
+describe('chart theme', () => {
+  it('defaults to the light colours', () => {
+    const chart = build_chart({ points: sample });
+    assert.equal(chart.colors, THEMES.light);
+    assert.ok(chart.svg.includes(`<rect width="${WIDTH}" height="${HEIGHT}" fill="${THEMES.light.background}"/>`));
+  });
+
+  it('draws the background, grid, axes and text in the dark colours', () => {
+    const chart = build_chart({ series: two_series, theme: 'dark' });
+    const { background, grid, axis, tick_text, label_text } = THEMES.dark;
+    assert.ok(chart.svg.includes(`<rect width="${WIDTH}" height="${HEIGHT}" fill="${background}"/>`));
+    assert.ok(elements(chart.svg, 'grid-x')[0].includes(`stroke="${grid}"`));
+    assert.ok(elements(chart.svg, 'axis')[0].includes(`stroke="${axis}"`));
+    assert.ok(elements(chart.svg, 'tick-x')[0].includes(`fill="${tick_text}"`));
+    assert.ok(elements(chart.svg, 'label-x')[0].includes(`fill="${label_text}"`));
+    for (const light of Object.values(THEMES.light)) assert.ok(!chart.svg.includes(light), `${light} left in the dark chart`);
+  });
+
+  it('keeps the series colours and falls back to light for an unknown theme', () => {
+    const dark = build_chart({ series: two_series, theme: 'dark' });
+    assert.ok(elements(dark.svg, 'series')[0].includes(`stroke="${SERIES_COLORS[0]}"`));
+    assert.equal(build_chart({ points: sample, theme: 'sepia' }).colors, THEMES.light);
   });
 });

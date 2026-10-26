@@ -78,6 +78,8 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+const current_theme = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+
 // Restore the user's previously selected theme
 const saved_theme = localStorage.getItem('theme');
 const is_dark = saved_theme === 'dark';
@@ -91,6 +93,7 @@ theme_toggle.addEventListener('change', () => {
 
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('theme', theme);
+  if (data) draw_chart(); // the chart's own colours follow the theme
 });
 
 log_toggle.checked = localStorage.getItem('logarithmic-view') === 'true';
@@ -118,7 +121,7 @@ function column_headers() {
 
 function draw_chart() {
   const series = to_series(column_headers().slice(1), data.rows);
-  chart = build_chart({ series, type, scale: log_toggle.checked ? 'log' : 'linear', visibility, viewport, full_domains, clip_id, x_label: x_label_input.value, y_label: y_label_input.value });
+  chart = build_chart({ series, type, theme: current_theme(), scale: log_toggle.checked ? 'log' : 'linear', visibility, viewport, full_domains, clip_id, x_label: x_label_input.value, y_label: y_label_input.value });
   full_domains ??= chart.full_domains;
   $('chart').innerHTML = chart.svg;
   tooltip.hidden = true; // it described the previous drawing
@@ -244,7 +247,7 @@ function highlight_table_value(values, column) {
     line.setAttribute('x2', px);
     line.setAttribute('y1', top);
     line.setAttribute('y2', bottom);
-    line.setAttribute('stroke', '#52514e');
+    line.setAttribute('stroke', chart.colors.tick_text);
     line.setAttribute('stroke-width', '2');
     line.setAttribute('stroke-dasharray', '5 4');
     group.appendChild(line);
@@ -260,7 +263,7 @@ function highlight_table_value(values, column) {
     circle.setAttribute('cy', point.py);
     circle.setAttribute('r', '7');
     circle.setAttribute('fill', point.color);
-    circle.setAttribute('stroke', '#fcfcfb');
+    circle.setAttribute('stroke', chart.colors.background);
     circle.setAttribute('stroke-width', '3');
     group.appendChild(circle);
   }
