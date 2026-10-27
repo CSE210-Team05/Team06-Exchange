@@ -1,6 +1,13 @@
-/** DOM-only chart navigation. Attach once to the persistent host, never to redraws. */
+/**
+ * DOM-only chart navigation: zoom with Ctrl + wheel, pan by dragging, and the
+ * zoom, pan and reset buttons. Attach once to the persistent host, never to redraws.
+ *
+ * @module plot_handling/chart_interaction
+ */
+
 import { MAX_ZOOM, pan_view, zoom_view } from './viewport.js';
 
+/** Hint shown when a navigation action cannot go any further, by action. */
 const LIMIT_MESSAGES = {
   in: 'Already at max zoom in',
   out: 'Already at max zoom out',
@@ -10,6 +17,12 @@ const LIMIT_MESSAGES = {
   down: "Can't go further down",
 };
 
+/**
+ * Whether a zoom or pan action is already at its limit.
+ * @param {string} action `in`, `out`, `left`, `right`, `up` or `down`
+ * @param {{viewport: module:plot_handling/viewport~View, full_domains: module:plot_handling/viewport~View}} chart the chart as it is drawn now
+ * @returns {boolean} true when the action would change nothing
+ */
 function at_limit(action, { viewport, full_domains }) {
   const epsilon = Number.EPSILON * 100;
   const close = (a, b) => Math.abs(a - b) <= epsilon * Math.max(1, Math.abs(a), Math.abs(b));
@@ -28,11 +41,23 @@ function at_limit(action, { viewport, full_domains }) {
   return false;
 }
 
+/**
+ * The hint that names the zoom level of a view.
+ * @param {module:plot_handling/viewport~View} view the visible domains
+ * @param {module:plot_handling/viewport~View} full the full domains
+ * @returns {string} for example `Zoom level: 2×`
+ */
 function zoom_message(view, full) {
   const level = (full.x[1] - full.x[0]) / (view.x[1] - view.x[0]);
   return `Zoom level: ${Math.round(level * 100) / 100}×`;
 }
 
+/**
+ * Convert a pointer event to chart coordinates (the SVG's own coordinate system).
+ * @param {?SVGSVGElement} svg the chart's SVG element
+ * @param {PointerEvent|WheelEvent} event a pointer or wheel event
+ * @returns {?DOMPoint} the position in chart coordinates, or null when the SVG is not displayed
+ */
 export function svg_pointer(svg, event) {
   const matrix = svg?.getScreenCTM();
   if (!matrix) return null;
@@ -42,6 +67,17 @@ export function svg_pointer(svg, event) {
   return point.matrixTransform(matrix.inverse());
 }
 
+/**
+ * Add wheel zoom, drag panning and the view buttons to a chart.
+ * @param {HTMLElement} host the persistent element that holds the chart's SVG
+ * @param {HTMLElement} controls the element that holds the buttons with a `data-view` attribute
+ * @param {function(): ?module:plot_handling/chart_rendering~Chart} get_chart the chart as it is drawn right now
+ * @param {function(?module:plot_handling/viewport~View): void} set_view called with the new view, or null to reset
+ * @param {function(): void} clear_hover called when a hover highlight must go away
+ * @param {function(string): void} [show_hint] shows a short message about the view
+ * @returns {{is_dragging: function(): boolean, cancel: function(): void}} whether a drag is
+ *   in progress, and a way to end it
+ */
 export function attach_navigation(host, controls, get_chart, set_view, clear_hover, show_hint = () => {}) {
   let drag = null;
   const finish = (event) => {

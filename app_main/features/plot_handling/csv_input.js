@@ -13,6 +13,8 @@
  * - Every x appears once: of several rows with the same x the first one wins.
  * - Rows without a numeric x and y, and rows with a repeated x, are skipped
  *   and counted, not silently dropped.
+ *
+ * @module plot_handling/csv_input
  */
 
 /** The chart has this many series colours; further columns are not plotted. */
@@ -83,8 +85,9 @@ export function read_rows(text, delimiter) {
 
 /**
  * Read one CSV field as a number, or NaN.
- * @param {string} value
- * @param {string} delimiter
+ * @param {string} value one field, as text
+ * @param {string} [delimiter=','] the delimiter of the CSV text; a decimal comma is only read when it is not ','
+ * @returns {number} the number, or NaN when the field is empty or not a number
  */
 export function to_number(value, delimiter = ',') {
   let text = value.trim().replace(/−/g, '-');
@@ -95,7 +98,11 @@ export function to_number(value, delimiter = ',') {
   return Number.isFinite(number) ? number : NaN;
 }
 
-/** Give repeated names a number ("Run", "Run (2)") so every series can be told apart. */
+/**
+ * Give repeated names a number ("Run", "Run (2)") so every series can be told apart.
+ * @param {string[]} names series names, possibly with repeats
+ * @returns {string[]} the same names, made unique
+ */
 function unique_names(names) {
   const seen = new Map();
   return names.map((name) => {
@@ -104,6 +111,18 @@ function unique_names(names) {
     return count > 1 ? `${name} (${count})` : name;
   });
 }
+
+/**
+ * One data point as an `[x, y]` pair.
+ * @typedef {Array<number>} Point
+ */
+
+/**
+ * One named series of points.
+ * @typedef {object} Series
+ * @property {string} name series name, shown in the legend
+ * @property {Array<Point>} points the series' points
+ */
 
 /**
  * @typedef {object} ParsedData
@@ -120,8 +139,10 @@ function unique_names(names) {
 /**
  * Parse pasted CSV text. Throws an Error with a user-facing message when
  * nothing can be plotted.
- * @param {string} text
+ * @param {string} text the pasted CSV text
  * @returns {ParsedData}
+ * @throws {Error} with a user-facing message when the text is empty, has fewer than
+ *   two columns, or contains no row with two numbers
  */
 export function parse_csv(text) {
   if (!text || !text.trim()) throw new Error('Paste CSV data first: one row per x value, x and y separated by a comma.');
@@ -184,7 +205,7 @@ export function parse_csv(text) {
  * no value are left out of that series.
  * @param {string[]} names one name per series
  * @param {Array<Array<number|null>>} rows [x, y1, y2, ...] per row
- * @returns {Array<{ name: string, points: Array<[number, number]> }>}
+ * @returns {Array<Series>} one series per name
  */
 export function to_series(names, rows) {
   return names.map((name, position) => ({
