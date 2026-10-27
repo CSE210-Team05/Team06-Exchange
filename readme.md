@@ -39,5 +39,3 @@ After a deploy, check the live site:
 ```sh
 SMOKE_URL=https://team06-exchange.vercel.app/ npm run test:smoke
 ```
-
-## TEST COMMIT TO CHECK GITHUB ACTIONS WORK
