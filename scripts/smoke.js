@@ -43,6 +43,7 @@ try {
   const html = await check('./', /text\/html/);
   assert.match(html, /id="chart"/, 'Page must contain the chart container');
   assert.match(html, /id="apply"/, 'Page must contain the apply button');
+  assert.match(html, /id="renderer-toggle"/, 'Page must contain the renderer toggle');
   const assets = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)];
   assert.ok(assets.length >= 2, 'Page must reference its script and stylesheet');
   for (const [, path] of assets) await check(path, path.endsWith('.css') ? /text\/css/ : /javascript/);

@@ -33,14 +33,24 @@ function zoom_message(view, full) {
   return `Zoom level: ${Math.round(level * 100) / 100}×`;
 }
 
-export function svg_pointer(svg, event) {
-  const matrix = svg?.getScreenCTM();
+/** Map a browser pointer to the chart's logical coordinates for SVG or Canvas. */
+export function chart_pointer(surface, event, chart = {}) {
+  const box = surface?.getBoundingClientRect?.();
+  if (box?.width && box?.height) {
+    const width = chart.width ?? 720;
+    const height = chart.height ?? 440;
+    return { x: (event.clientX - box.left) * width / box.width, y: (event.clientY - box.top) * height / box.height };
+  }
+  // Kept as a fallback for embedded SVGs and the lightweight DOM test doubles.
+  const matrix = surface?.getScreenCTM?.();
   if (!matrix) return null;
-  const point = svg.createSVGPoint();
+  const point = surface.createSVGPoint();
   point.x = event.clientX;
   point.y = event.clientY;
   return point.matrixTransform(matrix.inverse());
 }
+
+export const svg_pointer = chart_pointer;
 
 export function attach_navigation(host, controls, get_chart, set_view, clear_hover, show_hint = () => {}) {
   let drag = null;
@@ -54,7 +64,7 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
   const inside = (p, a) => p && p.x >= a.left && p.x <= a.right && p.y >= a.top && p.y <= a.bottom;
   host.addEventListener('wheel', (event) => {
     const chart = get_chart();
-    const p = svg_pointer(host.querySelector('svg'), event);
+    const p = chart_pointer(host.querySelector('svg:not(.chart-overlay), canvas'), event, chart);
     if (!event.ctrlKey || !event.deltaY || drag || !chart || !inside(p, chart.plot_area)) return;
     const a = chart.plot_area;
     event.preventDefault();
@@ -69,7 +79,7 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
   }, { passive: false });
   host.addEventListener('pointerdown', (event) => {
     const chart = get_chart();
-    const p = svg_pointer(host.querySelector('svg'), event);
+    const p = chart_pointer(host.querySelector('svg:not(.chart-overlay), canvas'), event, chart);
     if (drag || event.pointerType !== 'mouse' || event.button !== 0 || !event.isPrimary || !chart || !inside(p, chart.plot_area)) return;
     host.setPointerCapture(event.pointerId);
     drag = { id: event.pointerId, point: p, chart };
@@ -80,7 +90,7 @@ export function attach_navigation(host, controls, get_chart, set_view, clear_hov
   host.addEventListener('pointermove', (event) => {
     if (!drag || drag.id !== event.pointerId) return;
     if (!(event.buttons & 1)) { finish(event); return; }
-    const p = svg_pointer(host.querySelector('svg'), event);
+    const p = chart_pointer(host.querySelector('svg:not(.chart-overlay), canvas'), event, drag.chart);
     if (!p) return;
     const { chart, point } = drag;
     const a = chart.plot_area;

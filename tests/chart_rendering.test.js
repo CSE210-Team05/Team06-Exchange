@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { HEIGHT, MARKER_RADIUS, SERIES_COLORS, WIDTH, build_chart, render_chart } from '../app_main/features/plot_handling/chart_rendering.js';
+import { HEIGHT, MARKER_RADIUS, SERIES_COLORS, THEMES, WIDTH, build_chart, render_chart } from '../app_main/features/plot_handling/chart_rendering.js';
 
 const sample = [[0, 0], [1, 15.1], [2, 20.4], [3, 15.9], [4, 1.6]];
 const two_series = [
@@ -155,6 +155,15 @@ describe('build_chart', () => {
   it('returns the same markup as render_chart', () => {
     assert.equal(build_chart({ points: sample }).svg, render_chart({ points: sample }));
     assert.deepEqual(build_chart({ points: [] }).hit_points, []);
+  });
+});
+
+describe('chart theme', () => {
+  it('uses the selected palette in both rendering backends', () => {
+    const chart = build_chart({ points: sample, theme: 'dark' });
+    assert.equal(chart.colors, THEMES.dark);
+    assert.ok(chart.svg.includes(`fill="${THEMES.dark.background}"`));
+    assert.equal(chart.scene.nodes[0].fill, THEMES.dark.background);
   });
 });
 

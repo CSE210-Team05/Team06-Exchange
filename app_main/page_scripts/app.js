@@ -1,10 +1,11 @@
 /**
- * The page: paste CSV, apply it, pick line or scatter, edit the axis titles,
- * point at the plot to read values, read all plotted values in the data
- * table and download the plot as SVG or PNG.
+ * The page: paste CSV, apply it, pick line or scatter and SVG or Canvas,
+ * edit the axis titles, point at the plot to read values, read all plotted
+ * values in the data table and download the plot as SVG or PNG.
  */
 import { MAX_SERIES, parse_csv, to_series } from '../features/plot_handling/csv_input.js';
 import { build_chart, SERIES_COLORS } from '../features/plot_handling/chart_rendering.js';
+import { render_canvas } from '../features/plot_handling/canvas_rendering.js';
 import { attach_navigation } from '../features/plot_handling/chart_interaction.js';
 import { attach_hover } from '../features/plot_handling/hover_tooltip.js';
 import { download_blob, download_csv, svg_blob, svg_to_png } from '../features/plot_handling/plot_export.js';
@@ -53,6 +54,7 @@ const tooltip = $('tooltip');
 // Dark Mode toggle
 const theme_toggle = $('theme-toggle');
 const log_toggle = $('log-toggle');
+const renderer_toggle = $('renderer-toggle');
 const settings = document.querySelector('.settings');
 const settings_button = $('settings-button');
 const settings_menu = $('settings-menu');
@@ -78,6 +80,8 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+const current_theme = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+
 // Restore the user's previously selected theme
 const saved_theme = localStorage.getItem('theme');
 const is_dark = saved_theme === 'dark';
@@ -91,6 +95,7 @@ theme_toggle.addEventListener('change', () => {
 
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('theme', theme);
+  if (data) draw_chart();
 });
 
 log_toggle.checked = localStorage.getItem('logarithmic-view') === 'true';
@@ -98,12 +103,22 @@ log_toggle.checked = localStorage.getItem('logarithmic-view') === 'true';
 /** @type {import('../features/plot_handling/csv_input.js').ParsedData | null} */
 let data = null;
 let type = 'line';
+let renderer = localStorage.getItem('renderer') === 'canvas' ? 'canvas' : 'svg';
 let visibility = [];
 let viewport = null;
 let full_domains = null;
 const clip_id = `plot-${crypto.randomUUID()}`;
 /** @type {import('../features/plot_handling/chart_rendering.js').Chart | null} */
 let chart = null;
+
+function update_renderer_toggle() {
+  const using_canvas = renderer === 'canvas';
+  renderer_toggle.setAttribute('aria-pressed', String(using_canvas));
+  renderer_toggle.setAttribute('aria-label', `Switch to ${using_canvas ? 'SVG' : 'Canvas'} rendering`);
+  renderer_toggle.textContent = `Renderer: ${using_canvas ? 'Canvas' : 'SVG'}`;
+}
+
+update_renderer_toggle();
 
 const count_text = (count) => count.toLocaleString('en-US');
 
@@ -118,9 +133,15 @@ function column_headers() {
 
 function draw_chart() {
   const series = to_series(column_headers().slice(1), data.rows);
-  chart = build_chart({ series, type, scale: log_toggle.checked ? 'log' : 'linear', visibility, viewport, full_domains, clip_id, x_label: x_label_input.value, y_label: y_label_input.value });
+  chart = build_chart({ series, type, theme: current_theme(), scale: log_toggle.checked ? 'log' : 'linear', visibility, viewport, full_domains, clip_id, x_label: x_label_input.value, y_label: y_label_input.value });
   full_domains ??= chart.full_domains;
-  $('chart').innerHTML = chart.svg;
+  if (renderer === 'canvas') {
+    const canvas = document.createElement('canvas');
+    render_canvas(chart, canvas);
+    $('chart').replaceChildren(canvas);
+  } else {
+    $('chart').innerHTML = chart.svg;
+  }
   tooltip.hidden = true; // it described the previous drawing
   show_status(describe_data());
 }
@@ -230,9 +251,18 @@ function center_table_value(values, column) {
   $('chart').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+function create_chart_overlay(class_name) {
+  const overlay = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  overlay.classList.add('chart-overlay', class_name);
+  overlay.setAttribute('width', chart.width);
+  overlay.setAttribute('height', chart.height);
+  overlay.setAttribute('viewBox', `0 0 ${chart.width} ${chart.height}`);
+  overlay.setAttribute('aria-hidden', 'true');
+  return overlay;
+}
+
 function highlight_table_value(values, column) {
   const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  group.classList.add('table-selection-marker');
   if (column === 0) {
     const x = log_toggle.checked ? Math.log10(values[0]) : values[0];
     const [low, high] = chart.viewport.x;
@@ -244,11 +274,13 @@ function highlight_table_value(values, column) {
     line.setAttribute('x2', px);
     line.setAttribute('y1', top);
     line.setAttribute('y2', bottom);
-    line.setAttribute('stroke', '#52514e');
+    line.setAttribute('stroke', chart.colors.tick_text);
     line.setAttribute('stroke-width', '2');
     line.setAttribute('stroke-dasharray', '5 4');
     group.appendChild(line);
-    $('chart').querySelector('svg')?.appendChild(group);
+    const overlay = create_chart_overlay('table-selection-marker');
+    overlay.appendChild(group);
+    $('chart').appendChild(overlay);
     return [];
   }
   const points = chart.hit_points.filter((point) => point.x === values[0]
@@ -260,11 +292,13 @@ function highlight_table_value(values, column) {
     circle.setAttribute('cy', point.py);
     circle.setAttribute('r', '7');
     circle.setAttribute('fill', point.color);
-    circle.setAttribute('stroke', '#fcfcfb');
+    circle.setAttribute('stroke', chart.colors.background);
     circle.setAttribute('stroke-width', '3');
     group.appendChild(circle);
   }
-  $('chart').querySelector('svg')?.appendChild(group);
+  const overlay = create_chart_overlay('table-selection-marker');
+  overlay.appendChild(group);
+  $('chart').appendChild(overlay);
   return points;
 }
 
@@ -375,6 +409,14 @@ for (const radio of document.querySelectorAll('input[name="plot-type"]')) {
   });
 }
 
+renderer_toggle.addEventListener('click', () => {
+  navigation.cancel();
+  renderer = renderer === 'svg' ? 'canvas' : 'svg';
+  localStorage.setItem('renderer', renderer);
+  update_renderer_toggle();
+  if (data) draw_chart();
+});
+
 // Both downloads use the chart's own markup, not the page, so a hover highlight never ends up in the file.
 $('download-svg').addEventListener('click', () => {
   document.querySelector('.download-menu').open = false;
@@ -425,3 +467,8 @@ csv_input.value = SAMPLE_CSV;
 apply_data();
 y_label_input.value = SAMPLE_Y_LABEL;
 draw_chart();
+
+// Canvas text is rasterized, so repaint once the web font has finished loading.
+document.fonts?.ready.then(() => {
+  if (renderer === 'canvas' && data) draw_chart();
+});

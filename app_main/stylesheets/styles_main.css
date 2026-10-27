@@ -252,6 +252,8 @@ button:not(:disabled):active {
 .segmented label:hover input:checked + span { box-shadow: 0 0 0 1px var(--line-strong), 0 2px 5px rgba(11, 11, 11, 0.16); }
 .segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+.renderer-toggle[aria-pressed="true"] { border-color: var(--accent); background: var(--surface-sunk); }
+
 .download-menu { position: relative; }
 .download-menu summary {
   display: flex;
@@ -291,7 +293,9 @@ button:not(:disabled):active {
 /* The chart is always 720 x 440 px. Narrower screens scroll it sideways
    instead of shrinking it, so labels stay readable. */
 .chart { position: relative; padding: 8px; overflow-x: auto; }
-.chart svg { display: block; width: 720px; height: 440px; }
+#chart { position: relative; width: 720px; height: 440px; }
+#chart > svg, #chart > canvas { display: block; width: 720px; height: 440px; }
+#chart > .chart-overlay { position: absolute; inset: 0; pointer-events: none; }
 
 /* Shown beside the hovered data; hover_tooltip.js moves it with a transform. */
 .tooltip {

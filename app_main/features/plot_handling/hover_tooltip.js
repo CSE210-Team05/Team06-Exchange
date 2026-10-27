@@ -9,8 +9,8 @@
  * find_hover_points() is a pure function and is tested in Node.
  * attach_hover() is the only part that touches the DOM.
  */
-import { svg_pointer } from './chart_interaction.js';
-import { COLORS, MARKER_RADIUS } from './chart_rendering.js';
+import { chart_pointer } from './chart_interaction.js';
+import { MARKER_RADIUS } from './chart_rendering.js';
 
 /** Scatter plot: a point is picked up to this many pixels away from the pointer. */
 export const HOVER_RADIUS = 32;
@@ -63,15 +63,15 @@ export function find_hover_points(hit_points, px, py, type) {
 }
 
 /** Markup of the highlight: a vertical hairline in a line plot, and a ringed dot on every point. */
-function highlight_markup(found, type, plot_area) {
+function highlight_markup(found, type, plot_area, colors) {
   const parts = [];
   if (type !== 'scatter') {
     const x = Math.round(found[0].px) + 0.5;
-    parts.push(`<line x1="${x}" y1="${plot_area.top}" x2="${x}" y2="${plot_area.bottom}" stroke="${COLORS.axis}" stroke-width="1"/>`);
+    parts.push(`<line x1="${x}" y1="${plot_area.top}" x2="${x}" y2="${plot_area.bottom}" stroke="${colors.axis}" stroke-width="1"/>`);
   }
   for (const point of found) {
     parts.push(`<circle cx="${point.px}" cy="${point.py}" r="${MARKER_RADIUS + HIGHLIGHT_GROWTH}" fill="${point.color}" `
-      + `stroke="${COLORS.background}" stroke-width="${HIGHLIGHT_RING}"/>`);
+      + `stroke="${colors.background}" stroke-width="${HIGHLIGHT_RING}"/>`);
   }
   return parts.join('');
 }
@@ -121,7 +121,7 @@ function place_tooltip(tooltip, host, x, y, width, height) {
 
 /**
  * Show hover feedback on a chart.
- * @param {HTMLElement} host the element that holds the chart's <svg>
+ * @param {HTMLElement} host the element that holds the chart surface
  * @param {HTMLElement} tooltip an absolutely positioned element that shares the host's offset parent
  * @param {() => ({ hit_points: object[], plot_area: object, type: string, x_label: string } | null)} get_chart
  *   the chart as it is drawn right now
@@ -133,14 +133,14 @@ export function attach_hover(host, tooltip, get_chart) {
   };
 
   const show = (event) => {
-    const svg = host.querySelector('svg');
     const chart = get_chart();
-    const box = svg?.getBoundingClientRect();
+    const surface = host.querySelector('svg:not(.chart-overlay), canvas');
+    const box = surface?.getBoundingClientRect();
     if (!chart || !box?.width) {
       hide();
       return;
     }
-    const pointer = svg_pointer(svg, event);
+    const pointer = chart_pointer(surface, event, chart);
     if (!pointer) { hide(); return; }
     const { x: px, y: py } = pointer;
     const { left, right, top, bottom } = chart.plot_area;
@@ -151,29 +151,23 @@ export function attach_hover(host, tooltip, get_chart) {
       return;
     }
 
-    // The highlight lives inside the chart's <svg>, so it disappears with the chart on a redraw.
-    let highlight = svg.querySelector('.hover');
+    // A separate SVG overlay works above either rendering backend and disappears on redraw.
+    let highlight = host.querySelector('.hover');
     if (!highlight) {
-      highlight = document.createElementNS('http://www.w3.org/2000/svg', chart.clip_id ? 'g' : 'svg');
-      if (!chart.clip_id) {
-        const a = chart.plot_area;
-        for (const [name, value] of Object.entries({ x: a.left, y: a.top, width: a.right - a.left, height: a.bottom - a.top, viewBox: `${a.left} ${a.top} ${a.right - a.left} ${a.bottom - a.top}`, overflow: 'hidden' })) highlight.setAttribute(name, value);
-      }
-      highlight.setAttribute('class', 'hover');
-      highlight.setAttribute('pointer-events', 'none');
-      if (chart.clip_id) highlight.setAttribute('clip-path', `url(#${chart.clip_id})`);
-      svg.appendChild(highlight);
+      highlight = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      for (const [name, value] of Object.entries({ width: chart.width, height: chart.height, viewBox: `0 0 ${chart.width} ${chart.height}`, 'aria-hidden': 'true' })) highlight.setAttribute(name, value);
+      highlight.classList.add('chart-overlay', 'hover');
+      host.appendChild(highlight);
     }
-    highlight.innerHTML = highlight_markup(found, chart.type, chart.plot_area);
+    const clip = `${chart.clip_id || 'chart'}-hover`;
+    const a = chart.plot_area;
+    highlight.innerHTML = `<defs><clipPath id="${clip}"><rect x="${a.left}" y="${a.top}" width="${a.right - a.left}" height="${a.bottom - a.top}"/></clipPath></defs>`
+      + `<g clip-path="url(#${clip})">${highlight_markup(found, chart.type, chart.plot_area, chart.colors)}</g>`;
 
     fill_tooltip(tooltip, found, chart.x_label);
     tooltip.hidden = false;
     const anchor_y = chart.type === 'scatter' ? found[0].py : py;
-    const anchor = svg.createSVGPoint();
-    anchor.x = found[0].px;
-    anchor.y = anchor_y;
-    const screen = anchor.matrixTransform(svg.getScreenCTM());
-    place_tooltip(tooltip, host, screen.x - box.left, screen.y - box.top, box.width, box.height);
+    place_tooltip(tooltip, host, found[0].px * box.width / chart.width, anchor_y * box.height / chart.height, box.width, box.height);
   };
 
   host.addEventListener('pointermove', show);

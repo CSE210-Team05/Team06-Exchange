@@ -27,8 +27,9 @@ Page classes, set in `index.html` and styled in `app_main/stylesheets/styles_mai
 | `rail` | `<aside>` | Places the settings panel in the page grid. |
 | `table-panel` | `<section>` | Places the data table panel in the page grid. |
 | `panel-head` | `<div>` | Header row of a panel: heading on the left, note on the right. |
-| `toolbar` | `<div>` | Row above the chart with the plot type switch and the download buttons. |
+| `toolbar` | `<div>` | Row above the chart with the plot type switch, renderer toggle and download buttons. |
 | `segmented` | `<div>` | Switch between line and scatter. Hides the radio buttons and shows their labels as segments. |
+| `renderer-toggle` | `<button>` | Switches the chart surface between SVG and Canvas while preserving chart state. |
 | `chart` | `<div>` | Wrapper around the chart and its tooltip. Scrolls sideways on narrow screens. Not the same as `id="chart"`, the element inside it that the script redraws. |
 | `tooltip` | `<div>` | Box shown beside the hovered data. |
 | `rail-section` | `<section>` | One group of settings in the rail (Data, Axis titles). |
@@ -51,7 +52,7 @@ Tooltip classes, set by `hover_tooltip.js` on the elements it creates inside `to
 | `tooltip-name` | `<span>` | Name of the series. Cut off with an ellipsis when it is too long. |
 | `tooltip-value` | `<span>` | The y value. |
 
-Chart classes, set on the SVG elements of the chart. The stylesheet does not style them: the SVG sets its colours and sizes as attributes. The classes name the parts of the chart, and `tests/chart_rendering.test.js` finds the elements by them.
+Chart classes name the SVG elements of the chart. Canvas draws the equivalent renderer-independent scene in `canvas_rendering.js`; both backends receive the same geometry and colours from `chart_rendering.js`.
 
 | Class | Element | Role |
 | --- | --- | --- |

@@ -1,14 +1,14 @@
 /**
- * Draws a line or scatter plot as SVG markup.
+ * Builds a line or scatter plot and draws it as SVG markup.
  *
  * The layout is fixed: a 720 x 440 px chart with constant margins, a vertical
  * and a horizontal grid, axis lines on the left and bottom, and a title on
  * each axis. Only the axis ranges are automatic. With two or more series a
  * legend sits above the plot, which then starts a little lower.
  *
- * build_chart() is a pure function (data in, SVG text and point positions
- * out). It never touches the DOM, so it runs unchanged in Node tests, and the
- * page only has to put the returned markup into an element.
+ * build_chart() is a pure function (data in, renderer-independent scene, SVG
+ * text and point positions out). It never touches the DOM, so it runs unchanged
+ * in Node tests. The Canvas backend consumes the same scene.
  */
 import { logarithmic_axis, nice_axis, tick_formatter } from './axis_rendering.js';
 import { clamp_view } from './viewport.js';
@@ -20,14 +20,26 @@ export const HEIGHT = 440;
 const MARGIN = { top: 24, right: 32, bottom: 62, left: 88 };
 const FONT_FAMILY = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-/** Chart colours. */
-export const COLORS = {
-  background: '#fcfcfb',
-  grid: '#e1e0d9',
-  axis: '#a8a79f',
-  tick_text: '#52514e',
-  label_text: '#2b2b29',
+/** Chart colours per theme. */
+export const THEMES = {
+  light: {
+    background: '#fcfcfb',
+    grid: '#e1e0d9',
+    axis: '#a8a79f',
+    tick_text: '#52514e',
+    label_text: '#2b2b29',
+  },
+  dark: {
+    background: '#1e1e1e',
+    grid: '#333333',
+    axis: '#6f6f6f',
+    tick_text: '#c5c5c5',
+    label_text: '#f5f5f5',
+  },
 };
+
+/** Colours of the default light theme. */
+export const COLORS = THEMES.light;
 
 /**
  * One colour per series, used in this order. Every colour keeps at least
@@ -165,7 +177,9 @@ function layout_legend(names, max_width) {
 /**
  * @typedef {object} Chart
  * @property {string} svg a standalone SVG document
+ * @property {{ width: number, height: number, font_family: string, nodes: object[], title: string, description: string }} scene renderer-independent drawing instructions
  * @property {HitPoint[]} hit_points every drawn point, series by series
+ * @property {typeof COLORS} colors the colours the chart was drawn with
  * @property {{ left: number, right: number, top: number, bottom: number }} plot_area the area inside the axes, in px
  */
 
@@ -181,15 +195,17 @@ function layout_legend(names, max_width) {
  * @param {string} [chart.y_label]
  * @param {{ x: number[], y: number[] }} [chart.viewport] explicit view, clamped to full domains
  * @param {{ x: number[], y: number[] }} [chart.full_domains] stable padded bounds supplied by the application
+ * @param {'light'|'dark'} [chart.theme] colours of the background, grid, axes and text
  * @param {string} [chart.clip_id] unique per mounted chart; allocated outside this pure renderer
  * @returns {Chart}
  */
-export function build_chart({ series, points, type = 'line', scale = 'linear', x_label = 'x', y_label = 'y', visibility, viewport, full_domains, clip_id } = {}) {
+export function build_chart({ series, points, type = 'line', scale = 'linear', theme = 'light', x_label = 'x', y_label = 'y', visibility, viewport, full_domains, clip_id } = {}) {
   const is_logarithmic = scale === 'log';
   const is_plottable = ([x, y]) => !is_logarithmic || (x > 0 && y > 0);
   const has_line_segment = (source) => source.some((point, index) => index > 0 && is_plottable(point) && is_plottable(source[index - 1]));
   const transform = (value) => is_logarithmic ? Math.log10(value) : value;
   const untransform = (value) => is_logarithmic ? 10 ** value : value;
+  const colors = THEMES[theme] ?? THEMES.light;
   const series_list = (series ?? [{ name: y_label, points: points ?? [] }]).map((entry, position) => {
     const original_points = entry.points ?? [];
     const plotted_points = original_points.filter(is_plottable);
@@ -252,16 +268,24 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
   const format_x = x_axis.format ?? tick_formatter(x_axis.ticks, x_axis.step);
   const format_y = y_axis.format ?? tick_formatter(y_axis.ticks, y_axis.step);
 
-  const parts = [`<rect width="${WIDTH}" height="${HEIGHT}" fill="${COLORS.background}"/>`];
+  /** Renderer-independent drawing instructions consumed by the Canvas backend. */
+  const scene_nodes = [{ type: 'rect', x: 0, y: 0, width: WIDTH, height: HEIGHT, fill: colors.background }];
+  const parts = [`<rect width="${WIDTH}" height="${HEIGHT}" fill="${colors.background}"/>`];
 
   // Grid. Lines that coincide with the axis lines are left out.
   for (const value of x_axis.ticks) {
     const x = crisp(map_x(value));
-    if (x !== crisp(left)) parts.push(hairline('grid-x', x, top, x, bottom, COLORS.grid));
+    if (x !== crisp(left)) {
+      parts.push(hairline('grid-x', x, top, x, bottom, colors.grid));
+      scene_nodes.push({ type: 'line', class_name: 'grid-x', x1: x, y1: top, x2: x, y2: bottom, stroke: colors.grid, width: 1 });
+    }
   }
   for (const value of y_axis.ticks) {
     const y = crisp(map_y(value));
-    if (y !== crisp(bottom)) parts.push(hairline('grid-y', left, y, right, y, COLORS.grid));
+    if (y !== crisp(bottom)) {
+      parts.push(hairline('grid-y', left, y, right, y, colors.grid));
+      scene_nodes.push({ type: 'line', class_name: 'grid-y', x1: left, y1: y, x2: right, y2: y, stroke: colors.grid, width: 1 });
+    }
   }
 
   // Data: all lines first, then all markers on top. Markers paint their ring
@@ -269,13 +293,15 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
   // overlapping markers.
   const lines = [];
   const markers = [];
+  const line_nodes = [];
+  const marker_nodes = [];
   /** @type {HitPoint[]} */
   const hit_points = [];
   const plot_bounds = { left, right, top, bottom };
   let any_condensed = false;
   const pixel_x = (x) => map_x(transform(x));
   const pixel_y = (y) => map_y(transform(y));
-  const ring = `stroke="${COLORS.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke"`;
+  const ring = `stroke="${colors.background}" stroke-width="${MARKER_RING * 2}" paint-order="stroke"`;
   series_list.forEach((entry, position) => {
     if (!entry.visible || !entry.plotted_points.length) return;
     // A dense series is condensed to what its pixels can show; the kept points are original data.
@@ -309,14 +335,26 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
     const circle = ([, , px, py]) => `<circle cx="${num(px)}" cy="${num(py)}" r="${MARKER_RADIUS}"/>`;
     if (entry.markers) {
       markers.push(`<g class="markers" fill="${entry.color}" ${ring}>${groups[0].map(circle).join('')}</g>`);
+      marker_nodes.push({
+        type: 'circles', class_name: 'markers', points: groups[0].map(([, , px, py]) => [px, py]), radius: MARKER_RADIUS,
+        fill: entry.color, stroke: colors.background, stroke_width: MARKER_RING * 2,
+      });
       return;
     }
     for (const group of groups) {
       if (group.length > 1) {
         const coordinates = group.map(([, , px, py]) => `${num(px)},${num(py)}`).join(' ');
         lines.push(`<polyline class="series" points="${coordinates}" fill="none" stroke="${entry.color}" stroke-width="${LINE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
+        line_nodes.push({
+          type: 'polyline', class_name: 'series', points: group.map(([, , px, py]) => [px, py]), stroke: entry.color,
+          width: LINE_WIDTH, line_join: 'round', line_cap: 'round',
+        });
       } else {
         markers.push(`<g class="markers" fill="${entry.color}" ${ring}>${circle(group[0])}</g>`);
+        marker_nodes.push({
+          type: 'circles', class_name: 'markers', points: [[group[0][2], group[0][3]]], radius: MARKER_RADIUS,
+          fill: entry.color, stroke: colors.background, stroke_width: MARKER_RING * 2,
+        });
       }
     }
   });
@@ -325,26 +363,42 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
   const clip = clip_id ? ` clip-path="url(#${escape_xml(clip_id)})"` : '';
   if (clip_id) parts.push(`<defs><clipPath id="${escape_xml(clip_id)}"><rect x="${left}" y="${top}" width="${plot_width}" height="${plot_height}"/></clipPath></defs>`);
   parts.push(clip_id ? `<g class="data"${clip}>` : `<svg class="data" x="${left}" y="${top}" width="${plot_width}" height="${plot_height}" viewBox="${left} ${top} ${plot_width} ${plot_height}" overflow="hidden">`, ...lines, ...markers, clip_id ? '</g>' : '</svg>');
+  scene_nodes.push({ type: 'group', class_name: 'data', clip: { x: left, y: top, width: plot_width, height: plot_height }, nodes: [...line_nodes, ...marker_nodes] });
   if (all_hidden || !has_data) {
     const empty_text = all_hidden ? 'No series selected' : (is_logarithmic && excluded_points ? 'No positive data' : 'No data');
-    parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, empty_text, { size: 13, fill: COLORS.tick_text, baseline: 'middle' }));
+    const options = { size: 13, fill: colors.tick_text, baseline: 'middle' };
+    parts.push(text('empty', left + plot_width / 2, top + plot_height / 2, empty_text, options));
+    scene_nodes.push({ type: 'text', class_name: 'empty', x: left + plot_width / 2, y: top + plot_height / 2, content: empty_text, ...options, weight: 400, anchor: 'middle', rotate: 0 });
   }
 
   // Axis lines, tick labels and axis titles.
-  parts.push(hairline('axis', left, crisp(bottom), right, crisp(bottom), COLORS.axis));
-  parts.push(hairline('axis', crisp(left), top, crisp(left), bottom, COLORS.axis));
+  const bottom_axis = { type: 'line', class_name: 'axis', x1: left, y1: crisp(bottom), x2: right, y2: crisp(bottom), stroke: colors.axis, width: 1 };
+  const left_axis = { type: 'line', class_name: 'axis', x1: crisp(left), y1: top, x2: crisp(left), y2: bottom, stroke: colors.axis, width: 1 };
+  parts.push(hairline('axis', bottom_axis.x1, bottom_axis.y1, bottom_axis.x2, bottom_axis.y2, bottom_axis.stroke));
+  parts.push(hairline('axis', left_axis.x1, left_axis.y1, left_axis.x2, left_axis.y2, left_axis.stroke));
+  scene_nodes.push(bottom_axis, left_axis);
   for (const value of x_axis.ticks) {
-    parts.push(text('tick-x', map_x(value), bottom + 8, format_x(value), { size: TICK_FONT, fill: COLORS.tick_text, baseline: 'top' }));
+    const options = { size: TICK_FONT, fill: colors.tick_text, baseline: 'top' };
+    const x = map_x(value);
+    const content = format_x(value);
+    parts.push(text('tick-x', x, bottom + 8, content, options));
+    scene_nodes.push({ type: 'text', class_name: 'tick-x', x, y: bottom + 8, content, ...options, weight: 400, anchor: 'middle', rotate: 0 });
   }
   for (const value of y_axis.ticks) {
-    parts.push(text('tick-y', left - 8, map_y(value), format_y(value), { size: TICK_FONT, fill: COLORS.tick_text, anchor: 'end', baseline: 'middle' }));
+    const options = { size: TICK_FONT, fill: colors.tick_text, anchor: 'end', baseline: 'middle' };
+    const y = map_y(value);
+    const content = format_y(value);
+    parts.push(text('tick-y', left - 8, y, content, options));
+    scene_nodes.push({ type: 'text', class_name: 'tick-y', x: left - 8, y, content, ...options, weight: 400, rotate: 0 });
   }
-  parts.push(text('label-x', left + plot_width / 2, bottom + 34, fit_text(String(x_label), plot_width, LABEL_FONT), {
-    size: LABEL_FONT, weight: 500, fill: COLORS.label_text, baseline: 'top',
-  }));
-  parts.push(text('label-y', 18, top + plot_height / 2, fit_text(String(y_label), plot_height, LABEL_FONT), {
-    size: LABEL_FONT, weight: 500, fill: COLORS.label_text, baseline: 'top', rotate: -90,
-  }));
+  const x_title = fit_text(String(x_label), plot_width, LABEL_FONT);
+  const x_title_options = { size: LABEL_FONT, weight: 500, fill: colors.label_text, baseline: 'top' };
+  parts.push(text('label-x', left + plot_width / 2, bottom + 34, x_title, x_title_options));
+  scene_nodes.push({ type: 'text', class_name: 'label-x', x: left + plot_width / 2, y: bottom + 34, content: x_title, ...x_title_options, anchor: 'middle', rotate: 0 });
+  const y_title = fit_text(String(y_label), plot_height, LABEL_FONT);
+  const y_title_options = { size: LABEL_FONT, weight: 500, fill: colors.label_text, baseline: 'top', rotate: -90 };
+  parts.push(text('label-y', 18, top + plot_height / 2, y_title, y_title_options));
+  scene_nodes.push({ type: 'text', class_name: 'label-y', x: 18, y: top + plot_height / 2, content: y_title, ...y_title_options, anchor: 'middle' });
 
   // Legend: a short line or a dot in the series colour, then the series name.
   legend.entries.forEach((entry, position) => {
@@ -355,9 +409,15 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
     parts.push(as_marker
       ? `<circle class="legend-key" cx="${num(x + LEGEND_KEY / 2)}" cy="${num(y)}" r="${MARKER_RADIUS}" fill="${color}"/>`
       : `<line class="legend-key" x1="${num(x)}" y1="${num(y)}" x2="${num(x + LEGEND_KEY)}" y2="${num(y)}" stroke="${color}" stroke-width="${LINE_WIDTH}" stroke-linecap="round"/>`);
+    const legend_nodes = [as_marker
+      ? { type: 'circles', class_name: 'legend-key', points: [[x + LEGEND_KEY / 2, y]], radius: MARKER_RADIUS, fill: color }
+      : { type: 'line', class_name: 'legend-key', x1: x, y1: y, x2: x + LEGEND_KEY, y2: y, stroke: color, width: LINE_WIDTH, line_cap: 'round' }];
+    const legend_text = { size: LEGEND_FONT, fill: colors.tick_text, anchor: 'start', baseline: 'middle' };
     parts.push(text('legend-label', x + LEGEND_KEY + LEGEND_KEY_GAP, y, entry.label, {
-      size: LEGEND_FONT, fill: COLORS.tick_text, anchor: 'start', baseline: 'middle',
+      ...legend_text,
     }));
+    legend_nodes.push({ type: 'text', class_name: 'legend-label', x: x + LEGEND_KEY + LEGEND_KEY_GAP, y, content: entry.label, ...legend_text, weight: 400, rotate: 0 });
+    scene_nodes.push({ type: 'group', class_name: 'legend-entry', opacity: visible ? 1 : 0.45, line_through: !visible, nodes: legend_nodes });
     parts.push('</g>');
   });
 
@@ -381,7 +441,8 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', x
     + `role="img" font-family="${escape_xml(FONT_FAMILY)}">`
     + `<title>${escape_xml(`${subject} vs ${x_label}`)}</title><desc>${escape_xml(description)}</desc>`
     + `${parts.join('')}</svg>`;
-  return { svg, hit_points, excluded_points, full_domains: full, viewport: view, clip_id, plot_area: { left, right, top, bottom } };
+  const scene = { width: WIDTH, height: HEIGHT, font_family: FONT_FAMILY, nodes: scene_nodes, title: `${subject} vs ${x_label}`, description };
+  return { svg, scene, colors, width: WIDTH, height: HEIGHT, hit_points, excluded_points, full_domains: full, viewport: view, clip_id, plot_area: { left, right, top, bottom } };
 }
 
 /**

@@ -1,7 +1,7 @@
 {
   "name": "zeroplot",
   "version": "1.0.0",
-  "description": "Paste CSV data and draw a line or scatter plot as SVG. No dependencies, plain HTML, CSS and JavaScript.",
+  "description": "Paste CSV data and draw a line or scatter plot as SVG or Canvas. No dependencies, plain HTML, CSS and JavaScript.",
   "type": "module",
   "private": true,
   "scripts": {

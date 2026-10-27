@@ -1,6 +1,11 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { attach_navigation } from '../app_main/features/plot_handling/chart_interaction.js';
+import { attach_navigation, chart_pointer } from '../app_main/features/plot_handling/chart_interaction.js';
+
+it('maps either rendering surface to logical chart coordinates', () => {
+  const surface = { getBoundingClientRect: () => ({ left: 20, top: 10, width: 360, height: 220 }) };
+  assert.deepEqual(chart_pointer(surface, { clientX: 200, clientY: 120 }, { width: 720, height: 440 }), { x: 360, y: 220 });
+});
 
 function setup() {
   const events = new Map();
