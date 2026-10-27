@@ -32,6 +32,21 @@ npm start
 
 Open http://localhost:8080/.
 
+## API documentation
+
+The source code carries JSDoc comments. Generate the documentation from them:
+
+```sh
+npm run docs
+```
+
+This writes two untracked outputs into `docs/`:
+
+- `docs/html/index.html`: a browsable website (clean-jsdoc-theme, with search and a light/dark toggle). Serve it over HTTP, for example `npx serve docs/html`, because the search loads an index file.
+- `docs/API.md`: the same reference as one Markdown file.
+
+Settings are in `jsdoc.json`. See "JSDoc comments" in `documentation/style.md` for how to write the comments.
+
 ## Verify the deployment
 
 After a deploy, check the live site:

@@ -4,11 +4,14 @@
  *
  * The download action, image, and canvas need a browser. Blob construction is
  * kept separate so its exact contents can be tested in Node.
+ *
+ * @module plot_handling/plot_export
  */
 import { HEIGHT, WIDTH } from './chart_rendering.js';
 
 /** PNG pixels per chart pixel, so the image stays sharp on dense screens and in documents. */
 const PNG_SCALE = 2;
+/** File name of a downloaded CSV file. */
 export const CSV_FILE_NAME = 'zeroplot-data.csv';
 
 /**
@@ -27,11 +30,19 @@ export function download_blob(file_name, blob) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Preserve the data field exactly as entered in a CSV download. */
+/**
+ * Preserve the data field exactly as entered in a CSV download.
+ * @param {string} csv the CSV text, unchanged
+ * @returns {Blob} a UTF-8 text/csv blob
+ */
 export function csv_blob(csv) {
   return new Blob([csv], { type: 'text/csv;charset=utf-8' });
 }
 
+/**
+ * Save the CSV text as a file.
+ * @param {string} csv the CSV text, unchanged
+ */
 export function download_csv(csv) {
   download_blob(CSV_FILE_NAME, csv_blob(csv));
 }
