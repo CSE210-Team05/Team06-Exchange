@@ -95,7 +95,7 @@ theme_toggle.addEventListener('change', () => {
 
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('theme', theme);
-  if (data) draw_chart();
+  if (data) draw_chart(); // the chart's own colours follow the theme
 });
 
 log_toggle.checked = localStorage.getItem('logarithmic-view') === 'true';

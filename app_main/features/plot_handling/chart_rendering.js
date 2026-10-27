@@ -20,7 +20,10 @@ export const HEIGHT = 440;
 const MARGIN = { top: 24, right: 32, bottom: 62, left: 88 };
 const FONT_FAMILY = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-/** Chart colours per theme. */
+/**
+ * Chart colours per theme. The dark background is the page's dark surface
+ * colour, so the chart blends into its panel.
+ */
 export const THEMES = {
   light: {
     background: '#fcfcfb',
@@ -38,7 +41,7 @@ export const THEMES = {
   },
 };
 
-/** Colours of the default light theme. */
+/** Colours of the light theme, the default. */
 export const COLORS = THEMES.light;
 
 /**
