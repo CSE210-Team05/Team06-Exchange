@@ -6,7 +6,10 @@
   "private": true,
   "scripts": {
     "start": "node server/launch.js",
-    "test": "node --test",
+    "test": "node --test \"tests/*.test.js\"",
+    "test:coverage": "node --test --experimental-test-coverage \"tests/*.test.js\"",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "lint": "eslint .",
     "test:smoke": "node scripts/smoke.js",
     "check": "npm run lint && npm test && npm run test:smoke",
@@ -21,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "clean-jsdoc-theme": "5.2.0",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
