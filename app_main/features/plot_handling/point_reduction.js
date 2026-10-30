@@ -5,13 +5,16 @@
  * on the same pixels add markup but no information. Both reducers return
  * original data points (never averages), so tooltips keep showing real values,
  * and the input is never modified. They are pure and deterministic.
+ *
+ * @module plot_handling/point_reduction
  */
 
 /** A series with at most this many points is drawn as is. */
 export const REDUCE_THRESHOLD = 2000;
 
 /**
- * @typedef {[number, number, number, number]} DrawnPoint data x, data y, pixel x, pixel y
+ * A kept point: `[data x, data y, pixel x, pixel y]`.
+ * @typedef {Array<number>} DrawnPoint
  */
 
 /**
@@ -21,9 +24,9 @@ export const REDUCE_THRESHOLD = 2000;
  * Consecutive points are grouped, so unsorted input is still drawn in order.
  * Points left or right of the plot share one column each, which keeps the
  * segments that enter or leave the view.
- * @param {Array<[number, number]>} points
- * @param {(x: number) => number} map_x
- * @param {(y: number) => number} map_y
+ * @param {Array<module:plot_handling/csv_input~Point>} points `[x, y]` pairs in data units
+ * @param {function(number): number} map_x data x to pixel x
+ * @param {function(number): number} map_y data y to pixel y
  * @param {{ left: number, right: number }} bounds plot area in px
  * @returns {DrawnPoint[]}
  */
@@ -65,9 +68,9 @@ export function reduce_line(points, map_x, map_y, { left, right }) {
  * Scatter plot: keep one point per `cell` x `cell` pixel square (the first
  * one) and drop points that lie too far outside the plot to be visible.
  * Isolated outliers always survive because their cell is theirs alone.
- * @param {Array<[number, number]>} points
- * @param {(x: number) => number} map_x
- * @param {(y: number) => number} map_y
+ * @param {Array<module:plot_handling/csv_input~Point>} points `[x, y]` pairs in data units
+ * @param {function(number): number} map_x data x to pixel x
+ * @param {function(number): number} map_y data y to pixel y
  * @param {{ left: number, right: number, top: number, bottom: number }} bounds plot area in px
  * @param {number} cell edge of the square in px
  * @param {number} margin how far outside the plot a marker can still reach into it, in px

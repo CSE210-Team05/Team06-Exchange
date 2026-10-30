@@ -43,6 +43,11 @@ const DOWNLOAD_NAME = 'zeroplot-plot';
 /** The largest CSV file read into the textarea. Dense series are condensed when drawn, so this only bounds parsing time. */
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
+/**
+ * Shorthand for document.getElementById.
+ * @param {string} id element id
+ * @returns {HTMLElement} the element
+ */
 const $ = (id) => document.getElementById(id);
 const csv_input = $('csv');
 const file_input = $('file-input');
@@ -59,6 +64,10 @@ const settings = document.querySelector('.settings');
 const settings_button = $('settings-button');
 const settings_menu = $('settings-menu');
 
+/**
+ * Show or hide the settings menu and keep the button's ARIA state in sync.
+ * @param {boolean} open true to show the menu
+ */
 function set_settings_open(open) {
   settings_menu.hidden = !open;
   settings_button.setAttribute('aria-expanded', String(open));
@@ -80,6 +89,10 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+/**
+ * The theme in use, read from the page's data-theme attribute.
+ * @returns {'light'|'dark'} the theme name
+ */
 const current_theme = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
 
 // Restore the user's previously selected theme
@@ -100,7 +113,7 @@ theme_toggle.addEventListener('change', () => {
 
 log_toggle.checked = localStorage.getItem('logarithmic-view') === 'true';
 
-/** @type {import('../features/plot_handling/csv_input.js').ParsedData | null} */
+/** @type {?module:plot_handling/csv_input~ParsedData} */
 let data = null;
 let type = 'line';
 let renderer = localStorage.getItem('renderer') === 'canvas' ? 'canvas' : 'svg';
@@ -108,7 +121,7 @@ let visibility = [];
 let viewport = null;
 let full_domains = null;
 const clip_id = `plot-${crypto.randomUUID()}`;
-/** @type {import('../features/plot_handling/chart_rendering.js').Chart | null} */
+/** @type {?module:plot_handling/chart_rendering~Chart} */
 let chart = null;
 
 function update_renderer_toggle() {
@@ -125,12 +138,14 @@ const count_text = (count) => count.toLocaleString('en-US');
 /**
  * Column headers of the data table: x, then one per series.
  * A single series is named by the y axis title, several by their CSV headers.
+ * @returns {string[]} the column titles
  */
 function column_headers() {
   const series_names = data.names.length === 1 ? [y_label_input.value || data.names[0]] : data.names;
   return [x_label_input.value || 'x', ...series_names];
 }
 
+/** Rebuild the chart from the current data and settings, and put it into the page. */
 function draw_chart() {
   const series = to_series(column_headers().slice(1), data.rows);
   chart = build_chart({ series, type, theme: current_theme(), scale: log_toggle.checked ? 'log' : 'linear', visibility, viewport, full_domains, clip_id, x_label: x_label_input.value, y_label: y_label_input.value });
@@ -146,6 +161,11 @@ function draw_chart() {
   show_status(describe_data());
 }
 
+/**
+ * Pick black or white text for a background colour, by relative luminance.
+ * @param {string} background colour as `#rrggbb`
+ * @returns {string} `#0b0b0b` or `#ffffff`
+ */
 function contrast_text(background) {
   const channels = background.slice(1).match(/../g).map((value) => parseInt(value, 16) / 255);
   const luminance = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
@@ -178,6 +198,7 @@ function draw_visibility_controls() {
   $('series-controls').replaceChildren(...controls);
 }
 
+/** Fill the data table with the rows of the current data (at most TABLE_LIMIT rows). */
 function draw_table() {
   if (!data.rows.length) {
     const empty = document.createElement('p');
@@ -216,6 +237,11 @@ function draw_table() {
     : `${count_text(data.rows.length)} rows`;
 }
 
+/**
+ * Move the view so that a value from the data table is centred, and mark it in the chart.
+ * @param {Array<?number>} values the table row: x, then one value per series
+ * @param {number} column index of the clicked cell in the row (0 = the x value)
+ */
 function center_table_value(values, column) {
   if (!chart) return;
   if (log_toggle.checked && (values[0] <= 0 || (column > 0 && values[column] <= 0))) {
@@ -302,12 +328,20 @@ function highlight_table_value(values, column) {
   return points;
 }
 
+/**
+ * Show a message about the plotted data.
+ * @param {string} message the text
+ * @param {boolean} [is_error=false] true to style the message as an error
+ */
 function show_status(message, is_error = false) {
   status.textContent = message;
   status.classList.toggle('status-error', is_error);
 }
 
-/** What was plotted, and what happened to the rows and columns that were not. */
+/**
+ * What was plotted, and what happened to the rows and columns that were not.
+ * @returns {string} a sentence for each note
+ */
 function describe_data() {
   const rows_were = (count) => `${count_text(count)} ${count === 1 ? 'row was' : 'rows were'}`;
   const notes = [data.names.length > 1
@@ -433,10 +467,19 @@ $('download-png').addEventListener('click', async () => {
   }
 });
 
+/** Hide the tooltip and remove the hover highlight from the chart. */
 const clear_hover = () => {
   tooltip.hidden = true;
   $('chart').querySelector('.hover')?.remove();
 };
+/**
+ * Show a short hint about the view (zoom level, limits, selected value).
+ * @param {string} message the text; an empty text hides the hint
+ * @param {string} [background] hint background colour
+ * @param {string} [color] hint text colour
+ * @param {boolean} [persistent=false] true to keep the hint until the next one replaces it
+ * @param {?module:plot_handling/chart_rendering~HitPoint} [point] chart point the hint points at
+ */
 const show_view_hint = (message, background = '#1e1e1e', color = '#f5f5f5', persistent = false, point = null) => {
   const hint = $('view-status');
   hint.classList.remove('view-status-visible', 'view-status-persistent', 'view-status-above', 'view-status-below');

@@ -81,3 +81,14 @@ JavaScript files are named in snake_case as well (`csv_input.js`).
 JSDoc type names use PascalCase (`ParsedData`).
 
 Names that belong to the browser or to Node keep their own spelling (`addEventListener`, `textContent`).
+
+## JSDoc comments
+
+`npm run docs` builds the API documentation from the JSDoc comments, so every comment must be one the JSDoc parser can read.
+
+- Every source file under `app_main/`, `libs/` and `server/` starts with a comment that describes the file and ends with a `@module` tag (`@module plot_handling/csv_input`).
+- Every function has a comment with a description, a `@param` for each parameter, and `@returns` and `@throws` where they apply.
+- Shared object shapes get a `@typedef` (`ParsedData`, `Chart`, `View`). Refer to a type from another file by its module path: `module:plot_handling/csv_input~ParsedData`.
+- Write types in JSDoc syntax, not TypeScript syntax. JSDoc cannot read tuples (`[number, number]`), arrow function types (`(x: number) => number`), `import('./file.js').Type` or `typeof NAME`, and it drops the type without an error message that stops the build. Use `Array<number>`, `function(number): number` and a `@typedef` instead.
+- Run `npm run docs` after changing a comment. It must finish without errors or warnings.
+

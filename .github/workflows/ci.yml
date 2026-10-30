@@ -3,6 +3,9 @@ name: CI
 on:
   push:
   pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,5 +22,65 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run test:smoke
+      - run: npm run docs
+      - run: node --test --experimental-test-coverage
+
+  e2e:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Install browsers and system dependencies
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+      - name: Upload reports and traces
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  docs:
+    needs: checks
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      # GitHub Pages serves the site under /Team06-Exchange/, so the generated links need that prefix.
+      - run: node -e "const c=require('./jsdoc.json');c.opts.basePath='/Team06-Exchange/';require('fs').writeFileSync(process.env.RUNNER_TEMP+'/jsdoc.pages.json',JSON.stringify(c))"
+      - run: npx jsdoc -c "$RUNNER_TEMP/jsdoc.pages.json"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/html
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -4,6 +4,8 @@
  * The distance between ticks is always 1, 2 or 5 times a power of ten
  * (Paul Heckbert, "Nice Numbers for Graph Labels", Graphics Gems, 1990),
  * and each axis is extended to start and end on a tick.
+ *
+ * @module plot_handling/axis_rendering
  */
 import { compute_decimals, round_value } from '../../../libs/custom/math_operations.js';
 
@@ -14,14 +16,25 @@ const BETWEEN_1_AND_2 = Math.SQRT2;
 const BETWEEN_2_AND_5 = Math.sqrt(10);
 const BETWEEN_5_AND_10 = Math.sqrt(50);
 
+/** The typographic minus sign, as wide as a plus sign. */
 export const MINUS = '−';
 
+/** Compact units for large numbers, largest first. */
 const UNITS = [
   [1e12, 'T'],
   [1e9, 'B'],
   [1e6, 'M'],
   [1e3, 'K'],
 ];
+
+/**
+ * An axis ready for drawing.
+ * @typedef {object} Axis
+ * @property {Array<number>} domain `[low, high]` in the axis' own units (log10 values for a logarithmic axis)
+ * @property {Array<number>} ticks tick values in ascending order
+ * @property {number} step distance between ticks
+ * @property {function(number): string} [format] tick label formatter; set by logarithmic_axis only
+ */
 
 /**
  * A nice distance between ticks for cutting [start, stop] into about `count` parts.
@@ -49,7 +62,7 @@ export function tick_step(start, stop, count) {
  * @param {number} low smallest data value
  * @param {number} high largest data value
  * @param {number} count approximate number of intervals
- * @returns {{ domain: [number, number], ticks: number[], step: number }}
+ * @returns {Axis} domain, tick values and step
  */
 export function nice_axis(low, high, count) {
   let start = Math.min(low, high);
@@ -74,6 +87,10 @@ export function nice_axis(low, high, count) {
  * Axis for values already transformed with log10. Whole powers of ten are
  * used across broad ranges; a regular nice axis keeps labels useful while
  * zoomed into less than one decade.
+ * @param {number} low smallest log10 value
+ * @param {number} high largest log10 value
+ * @param {number} count approximate number of intervals
+ * @returns {Axis} the axis, with a `format` that turns a log10 value back into its label
  */
 export function logarithmic_axis(low, high, count) {
   let start = Math.min(low, high);
@@ -96,7 +113,11 @@ export function logarithmic_axis(low, high, count) {
   return { ...axis, format: (value) => format_log_value(10 ** value) };
 }
 
-/** Log ticks use independent compact labels so distant magnitudes never round to the same text. */
+/**
+ * Log ticks use independent compact labels so distant magnitudes never round to the same text.
+ * @param {number} value the plain (not log10) value
+ * @returns {string} label such as `5K`, `0.01` or `2.5e−5`
+ */
 function format_log_value(value) {
   const compact = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
   if (value >= 1e4) {
@@ -114,9 +135,9 @@ function format_log_value(value) {
  * Formatter for the tick labels of one axis. All labels share one precision
  * (0.0, 0.5, 1.0), long numbers use compact units (5K, 2.5M), and negative
  * numbers get the typographic minus sign, which is as wide as a plus sign.
- * @param {number[]} ticks
+ * @param {Array<number>} ticks the tick values of the axis
  * @param {number} step distance between ticks
- * @returns {(value: number) => string}
+ * @returns {function(number): string} turns a tick value into its label
  */
 export function tick_formatter(ticks, step) {
   const max_abs = ticks.reduce((largest, value) => Math.max(largest, Math.abs(value)), 0);

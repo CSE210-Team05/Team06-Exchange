@@ -1,6 +1,13 @@
-/** DOM-only chart navigation. Attach once to the persistent host, never to redraws. */
+/**
+ * DOM-only chart navigation: zoom with Ctrl + wheel, pan by dragging, and the
+ * zoom, pan and reset buttons. Attach once to the persistent host, never to redraws.
+ *
+ * @module plot_handling/chart_interaction
+ */
+
 import { MAX_ZOOM, pan_view, zoom_view } from './viewport.js';
 
+/** Hint shown when a navigation action cannot go any further, by action. */
 const LIMIT_MESSAGES = {
   in: 'Already at max zoom in',
   out: 'Already at max zoom out',
@@ -10,6 +17,12 @@ const LIMIT_MESSAGES = {
   down: "Can't go further down",
 };
 
+/**
+ * Whether a zoom or pan action is already at its limit.
+ * @param {string} action `in`, `out`, `left`, `right`, `up` or `down`
+ * @param {{viewport: module:plot_handling/viewport~View, full_domains: module:plot_handling/viewport~View}} chart the chart as it is drawn now
+ * @returns {boolean} true when the action would change nothing
+ */
 function at_limit(action, { viewport, full_domains }) {
   const epsilon = Number.EPSILON * 100;
   const close = (a, b) => Math.abs(a - b) <= epsilon * Math.max(1, Math.abs(a), Math.abs(b));
@@ -28,6 +41,12 @@ function at_limit(action, { viewport, full_domains }) {
   return false;
 }
 
+/**
+ * The hint that names the zoom level of a view.
+ * @param {module:plot_handling/viewport~View} view the visible domains
+ * @param {module:plot_handling/viewport~View} full the full domains
+ * @returns {string} for example `Zoom level: 2×`
+ */
 function zoom_message(view, full) {
   const level = (full.x[1] - full.x[0]) / (view.x[1] - view.x[0]);
   return `Zoom level: ${Math.round(level * 100) / 100}×`;

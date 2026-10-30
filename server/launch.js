@@ -8,15 +8,20 @@
  *
  *   node server/launch.js            -> http://localhost:8080
  *   node server/launch.js 3000       -> http://localhost:3000
+ *
+ * @module server/launch
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+/** The project folder; only files inside it are served. */
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+/** Port from the command line, the PORT environment variable, or 8080. */
 const PORT = Number(process.argv[2] || process.env.PORT || 8080);
 
+/** Content type per file extension; other files are sent as `application/octet-stream`. */
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -31,6 +36,10 @@ const TYPES = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+/**
+ * The HTTP server. It answers every request with the file at that path (a folder serves its
+ * `index.html`), `403` for a path outside ROOT, and `404` for a missing file.
+ */
 const server = createServer(async (request, response) => {
   try {
     const { pathname } = new URL(request.url, 'http://localhost');

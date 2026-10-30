@@ -32,6 +32,23 @@ npm start
 
 Open http://localhost:8080/.
 
+## API documentation
+
+The source code carries JSDoc comments. Generate the documentation from them:
+
+```sh
+npm run docs
+```
+
+This writes two untracked outputs into `docs/`:
+
+- `docs/html/index.html`: a browsable website (clean-jsdoc-theme, with search and a light/dark toggle). Serve it over HTTP, for example `npx serve docs/html`, because the search loads an index file.
+- `docs/API.md`: the same reference as one Markdown file.
+
+Whenever a GitHub Release is published, the CI workflow builds the HTML site from the release tag and publishes it to GitHub Pages at <https://cse210-team05.github.io/Team06-Exchange/>, so the site always shows the latest release. The job can also be started by hand from the Actions tab. A repository owner must set **Settings > Pages > Source** to **GitHub Actions** once, and allow release tags in the `github-pages` environment (**Settings > Environments**); until then the `docs` job fails.
+
+Settings are in `jsdoc.json`. See "JSDoc comments" in `documentation/style.md` for how to write the comments.
+
 ## Verify the deployment
 
 After a deploy, check the live site:

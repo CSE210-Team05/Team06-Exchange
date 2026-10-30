@@ -8,6 +8,8 @@
  *
  * find_hover_points() is a pure function and is tested in Node.
  * attach_hover() is the only part that touches the DOM.
+ *
+ * @module plot_handling/hover_tooltip
  */
 import { chart_pointer } from './chart_interaction.js';
 import { MARKER_RADIUS } from './chart_rendering.js';
@@ -23,11 +25,11 @@ const HIGHLIGHT_RING = 2;
 
 /**
  * The points to show for a pointer position.
- * @param {import('./chart_rendering.js').HitPoint[]} hit_points every drawn point, series by series
+ * @param {Array<module:plot_handling/chart_rendering~HitPoint>} hit_points every drawn point, series by series
  * @param {number} px pointer position in the chart, in px
- * @param {number} py
- * @param {'line'|'scatter'} type
- * @returns {import('./chart_rendering.js').HitPoint[]} empty when nothing is close enough
+ * @param {number} py pointer position in the chart, in px
+ * @param {'line'|'scatter'} type the plot type
+ * @returns {Array<module:plot_handling/chart_rendering~HitPoint>} empty when nothing is close enough
  */
 export function find_hover_points(hit_points, px, py, type) {
   if (!hit_points.length) return [];
@@ -62,7 +64,14 @@ export function find_hover_points(hit_points, px, py, type) {
   return [...nearest.values()];
 }
 
-/** Markup of the highlight: a vertical hairline in a line plot, and a ringed dot on every point. */
+/**
+ * Markup of the highlight: a vertical hairline in a line plot, and a ringed dot on every point.
+ * @param {Array<module:plot_handling/chart_rendering~HitPoint>} found the points to highlight
+ * @param {'line'|'scatter'} type the plot type
+ * @param {module:plot_handling/chart_rendering~PlotArea} plot_area the area inside the axes
+ * @param {module:plot_handling/chart_rendering~Theme} colors the colours of the chart's theme
+ * @returns {string} SVG markup
+ */
 function highlight_markup(found, type, plot_area, colors) {
   const parts = [];
   if (type !== 'scatter') {
@@ -76,7 +85,12 @@ function highlight_markup(found, type, plot_area, colors) {
   return parts.join('');
 }
 
-/** Fill the tooltip: the x value as its title, then one row per series. */
+/**
+ * Fill the tooltip: the x value as its title, then one row per series.
+ * @param {HTMLElement} tooltip the tooltip element, emptied and refilled
+ * @param {Array<module:plot_handling/chart_rendering~HitPoint>} found the points to describe
+ * @param {string} x_label title of the x axis
+ */
 function fill_tooltip(tooltip, found, x_label) {
   const title = document.createElement('div');
   title.className = 'tooltip-title';
@@ -105,9 +119,9 @@ function fill_tooltip(tooltip, found, x_label) {
  * @param {HTMLElement} tooltip
  * @param {HTMLElement} host the element that holds the chart
  * @param {number} x position in the chart as shown on screen, in px
- * @param {number} y
+ * @param {number} y position in the chart as shown on screen, in px
  * @param {number} width size of the chart as shown on screen, in px
- * @param {number} height
+ * @param {number} height size of the chart as shown on screen, in px
  */
 function place_tooltip(tooltip, host, x, y, width, height) {
   const box_width = tooltip.offsetWidth;
@@ -120,11 +134,21 @@ function place_tooltip(tooltip, host, x, y, width, height) {
 }
 
 /**
+ * What attach_hover() needs to know about the chart as it is drawn right now.
+ * @typedef {object} HoverChart
+ * @property {Array<module:plot_handling/chart_rendering~HitPoint>} hit_points every drawn point
+ * @property {module:plot_handling/chart_rendering~PlotArea} plot_area the area inside the axes
+ * @property {'line'|'scatter'} type the plot type
+ * @property {string} x_label title of the x axis
+ * @property {module:plot_handling/chart_rendering~Theme} [colors] colours of the chart's theme
+ * @property {string} [clip_id] id of the chart's clip path
+ */
+
+/**
  * Show hover feedback on a chart.
  * @param {HTMLElement} host the element that holds the chart surface
  * @param {HTMLElement} tooltip an absolutely positioned element that shares the host's offset parent
- * @param {() => ({ hit_points: object[], plot_area: object, type: string, x_label: string } | null)} get_chart
- *   the chart as it is drawn right now
+ * @param {function(): ?HoverChart} get_chart the chart as it is drawn right now, or null
  */
 export function attach_hover(host, tooltip, get_chart) {
   const hide = () => {

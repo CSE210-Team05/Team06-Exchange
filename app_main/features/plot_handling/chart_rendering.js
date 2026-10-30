@@ -15,14 +15,27 @@ import { clamp_view } from './viewport.js';
 import { REDUCE_THRESHOLD, reduce_line, reduce_scatter } from './point_reduction.js';
 import { compute_interpolation_factor } from '../../../libs/custom/math_operations.js';
 
+/** Width of the chart in px. The layout is fixed. */
 export const WIDTH = 720;
+/** Height of the chart in px. The layout is fixed. */
 export const HEIGHT = 440;
 const MARGIN = { top: 24, right: 32, bottom: 62, left: 88 };
 const FONT_FAMILY = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 /**
+ * The colours of one chart theme, as CSS colour strings.
+ * @typedef {object} Theme
+ * @property {string} background chart background
+ * @property {string} grid grid lines
+ * @property {string} axis axis lines
+ * @property {string} tick_text tick labels
+ * @property {string} label_text axis titles
+ */
+
+/**
  * Chart colours per theme. The dark background is the page's dark surface
  * colour, so the chart blends into its panel.
+ * @type {{light: Theme, dark: Theme}}
  */
 export const THEMES = {
   light: {
@@ -41,13 +54,17 @@ export const THEMES = {
   },
 };
 
-/** Colours of the light theme, the default. */
+/**
+ * Colours of the light theme, the default.
+ * @type {Theme}
+ */
 export const COLORS = THEMES.light;
 
 /**
  * One colour per series, used in this order. Every colour keeps at least
  * 3:1 contrast against the plot background. A ninth series starts again
  * with the first colour.
+ * @type {string[]}
  */
 export const SERIES_COLORS = ['#2470c7', '#eb6834', '#14845d', '#9a6600', '#b94f79', '#008300', '#6250d6', '#e34948'];
 
@@ -83,21 +100,58 @@ const BASELINE_SHIFT = { top: '0.8em', middle: '0.35em' };
 
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
-/** Escape text for SVG content and attributes (axis titles come from pasted data). */
+/**
+ * Escape text for SVG content and attributes (axis titles come from pasted data).
+ * @param {*} text the text; other values are converted to a string
+ * @returns {string} the text with `& < > " '` replaced by entities
+ */
 export function escape_xml(text) {
   return String(text).replace(/[&<>"']/g, (character) => ESCAPES[character]);
 }
 
-/** Two decimals are plenty for screen coordinates and keep the markup small. */
+/**
+ * Two decimals are plenty for screen coordinates and keep the markup small.
+ * @param {number} value a coordinate
+ * @returns {number} the value rounded to two decimals
+ */
 const num = (value) => Math.round(value * 100) / 100;
 
-/** Align a 1 px line to the pixel grid so it renders crisp instead of blurred over two pixels. */
+/**
+ * Align a 1 px line to the pixel grid so it renders crisp instead of blurred over two pixels.
+ * @param {number} value a coordinate
+ * @returns {number} the nearest pixel centre
+ */
 const crisp = (value) => Math.round(value) + 0.5;
 
+/**
+ * A 1 px line.
+ * @param {string} class_name CSS class of the line
+ * @param {number} x1 start x
+ * @param {number} y1 start y
+ * @param {number} x2 end x
+ * @param {number} y2 end y
+ * @param {string} color stroke colour
+ * @returns {string} SVG markup
+ */
 function hairline(class_name, x1, y1, x2, y2, color) {
   return `<line class="${class_name}" x1="${num(x1)}" y1="${num(y1)}" x2="${num(x2)}" y2="${num(y2)}" stroke="${color}" stroke-width="1"/>`;
 }
 
+/**
+ * A text element. The content is escaped.
+ * @param {string} class_name CSS class of the text
+ * @param {number} x anchor x
+ * @param {number} y anchor y
+ * @param {string} content the text
+ * @param {object} style how to draw it
+ * @param {number} style.size font size in px
+ * @param {number} [style.weight=400] font weight
+ * @param {string} style.fill text colour
+ * @param {string} [style.anchor='middle'] SVG text-anchor
+ * @param {'top'|'middle'} [style.baseline] vertical alignment
+ * @param {number} [style.rotate=0] rotation in degrees around (x, y)
+ * @returns {string} SVG markup
+ */
 function text(class_name, x, y, content, { size, weight = 400, fill, anchor = 'middle', baseline, rotate = 0 }) {
   const position = rotate
     ? `transform="translate(${num(x)} ${num(y)}) rotate(${rotate})"`
@@ -110,13 +164,22 @@ function text(class_name, x, y, content, { size, weight = 400, fill, anchor = 'm
 /**
  * Shorten text that would not fit in `max_width` pixels, using the average
  * glyph width of sans-serif fonts.
+ * @param {string} content the text
+ * @param {number} max_width available width in px
+ * @param {number} size font size in px
+ * @returns {string} the text, cut off with an ellipsis when it is too long
  */
 function fit_text(content, max_width, size) {
   const max_chars = Math.floor(max_width / (size * GLYPH_WIDTH));
   return content.length > max_chars ? `${content.slice(0, Math.max(1, max_chars - 1))}…` : content;
 }
 
-/** Smallest and largest value of one coordinate (0 = x, 1 = y) over all series. */
+/**
+ * Smallest and largest value of one coordinate (0 = x, 1 = y) over all series.
+ * @param {Array<{points: Array<module:plot_handling/csv_input~Point>}>} series_list the series to scan
+ * @param {number} coordinate 0 for x, 1 for y
+ * @returns {Array<number>} `[low, high]`; `[Infinity, -Infinity]` when there are no points
+ */
 function extent(series_list, coordinate) {
   let low = Infinity;
   let high = -Infinity;
@@ -133,6 +196,11 @@ function extent(series_list, coordinate) {
  * Widen a nice domain just enough that markers at the data extremes keep
  * `pad_px` pixels of space to the plot edge, so they are not cut in half.
  * The ticks stay on their round values.
+ * @param {Array<number>} domain the nice domain `[d0, d1]`
+ * @param {Array<number>} extreme the data extremes `[low, high]`
+ * @param {number} span_px length of the axis in px
+ * @param {number} pad_px wanted space in px
+ * @returns {Array<number>} the widened domain, never narrower than `domain`
  */
 function pad_domain([d0, d1], [low, high], span_px, pad_px) {
   const units_per_pixel = (d1 - d0) / span_px;
@@ -167,6 +235,15 @@ function layout_legend(names, max_width) {
 }
 
 /**
+ * The area inside the axes, in chart px.
+ * @typedef {object} PlotArea
+ * @property {number} left left edge
+ * @property {number} right right edge
+ * @property {number} top top edge
+ * @property {number} bottom bottom edge
+ */
+
+/**
  * @typedef {object} HitPoint a drawn data point, for hover feedback
  * @property {number} series position of its series
  * @property {string} name name of its series
@@ -182,22 +259,26 @@ function layout_legend(names, max_width) {
  * @property {string} svg a standalone SVG document
  * @property {{ width: number, height: number, font_family: string, nodes: object[], title: string, description: string }} scene renderer-independent drawing instructions
  * @property {HitPoint[]} hit_points every drawn point, series by series
- * @property {typeof COLORS} colors the colours the chart was drawn with
- * @property {{ left: number, right: number, top: number, bottom: number }} plot_area the area inside the axes, in px
+ * @property {module:plot_handling/chart_rendering~Theme} colors the colours the chart was drawn with
+ * @property {module:plot_handling/chart_rendering~PlotArea} plot_area the area inside the axes, in px
+ * @property {number} excluded_points points left out because a logarithmic scale cannot show them
+ * @property {module:plot_handling/viewport~View} full_domains the stable bounds of the whole data
+ * @property {module:plot_handling/viewport~View} viewport the visible part of the chart
+ * @property {string} [clip_id] id of the clip path, as passed in
  */
 
 /**
  * Draw a chart and report where its points are.
  * @param {object} chart
- * @param {Array<{ name: string, points: Array<[number, number]> }>} [chart.series] one entry per line or marker group
- * @param {Array<[number, number]>} [chart.points] shorthand for a single series named by `y_label`
+ * @param {Array<module:plot_handling/csv_input~Series>} [chart.series] one entry per line or marker group
+ * @param {Array<module:plot_handling/csv_input~Point>} [chart.points] shorthand for a single series named by `y_label`
  * @param {boolean[]} [chart.visibility] flags by original series index; omitted entries are visible
  * @param {'line'|'scatter'} [chart.type]
  * @param {'linear'|'log'} [chart.scale]
  * @param {string} [chart.x_label]
  * @param {string} [chart.y_label]
- * @param {{ x: number[], y: number[] }} [chart.viewport] explicit view, clamped to full domains
- * @param {{ x: number[], y: number[] }} [chart.full_domains] stable padded bounds supplied by the application
+ * @param {module:plot_handling/viewport~View} [chart.viewport] explicit view, clamped to full domains
+ * @param {module:plot_handling/viewport~View} [chart.full_domains] stable padded bounds supplied by the application
  * @param {'light'|'dark'} [chart.theme] colours of the background, grid, axes and text
  * @param {string} [chart.clip_id] unique per mounted chart; allocated outside this pure renderer
  * @returns {Chart}
@@ -450,7 +531,7 @@ export function build_chart({ series, points, type = 'line', scale = 'linear', t
 
 /**
  * Draw a chart (see build_chart for the options).
- * @param {object} [chart]
+ * @param {object} [chart] the same options as build_chart()
  * @returns {string} a standalone SVG document
  */
 export function render_chart(chart) {
